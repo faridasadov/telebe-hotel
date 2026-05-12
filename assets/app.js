@@ -214,7 +214,11 @@ async function fetchPlaces() {
     else if (filters.sort.value === "vacancy") data.sort((a, b) => b.free_spots - a.free_spots);
     return data;
   } catch (e) {
-    return null;
+    console.warn("Backend not found, using static fallback.");
+    return [
+      { id: 1, name: "Campus House Bakı (Demo)", type: "hostel", city: "baku", gender: "mixed", price: 350, total_spots: 12, free_spots: 4, wifi: 1, utilities: 1, images: ["https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80"], rating: 4.5, review_count: 28, universities: [{code: "BDU", distance_min: 7}] },
+      { id: 2, name: "Gəncə Student Hostel (Demo)", type: "hostel", city: "ganja", gender: "mixed", price: 210, total_spots: 20, free_spots: 1, wifi: 1, utilities: 0, images: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"], rating: 4.0, review_count: 15, universities: [{code: "GDU", distance_min: 5}] }
+    ];
   }
 }
 
