@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="az" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" data-i18n="meta.description" content="Tələbələr üçün yoxlanılmış yaşayış rezervasiya platforması" />
+    <title data-i18n="meta.title">StudentStay — Tələbələr üçün yaşayış</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="assets/styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  </head>
+  <body>
+
+    <!-- ============ HEADER ============ -->
+    <header class="header">
+      <div class="container header-inner">
+        <a class="logo" href="#home" aria-label="StudentStay">
+          <span class="logo-mark">S</span>
+          <span class="logo-text">StudentStay</span>
+        </a>
+
+        <nav class="nav" aria-label="Main navigation">
+          <a href="#places" data-i18n="nav.places">Yaşayış yerləri</a>
+          <a href="#how" data-i18n="nav.how">Necə işləyir</a>
+          <a href="#features" data-i18n="nav.features">Üstünlüklər</a>
+          <a href="#booking" data-i18n="nav.booking">Rezervasiya</a>
+          <a href="#contact" data-i18n="nav.contact">Əlaqə</a>
+        </nav>
+
+        <div class="header-actions">
+          <select id="langSwitcher" class="lang-switcher" aria-label="Language">
+            <option value="az">🇦🇿 AZ</option>
+            <option value="ru">🇷🇺 RU</option>
+            <option value="en">🇬🇧 EN</option>
+            <option value="tr">🇹🇷 TR</option>
+            <option value="es">🇪🇸 ES</option>
+            <option value="fr">🇫🇷 FR</option>
+            <option value="de">🇩🇪 DE</option>
+            <option value="zh">🇨🇳 ZH</option>
+            <option value="hi">🇮🇳 HI</option>
+            <option value="ar">🇸🇦 AR</option>
+          </select>
+
+          <button id="themeToggle" class="icon-btn" aria-label="Toggle theme" title="Theme">
+            <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+
+          <a class="btn btn-primary btn-sm" href="#booking" data-i18n="cta.start">Başla</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+
+      <!-- ============ HERO ============ -->
+      <section id="home" class="hero">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="container hero-inner">
+          <span class="badge" data-i18n="hero.eyebrow">✨ Tələbələr üçün real vaxt sistemi</span>
+          <h1 data-i18n="hero.title">Universitetinizə yaxın <span class="accent">ideal yaşayış</span> yerini tapın</h1>
+          <p class="hero-sub" data-i18n="hero.subtitle">Bakı, Gəncə və Sumqayıtda yoxlanılmış yataqxana, hotel və kirayə evlər. Boş yerləri real vaxtda görün və onlayn rezervasiya edin.</p>
+
+          <form class="search-card" aria-label="Quick search">
+            <label>
+              <span data-i18n="hero.city">Şəhər</span>
+              <select id="heroCity">
+                <option value="all" data-i18n="opt.allCities">Bütün şəhərlər</option>
+                <option value="baku" data-i18n="city.baku">Bakı</option>
+                <option value="ganja" data-i18n="city.ganja">Gəncə</option>
+                <option value="sumgayit" data-i18n="city.sumgayit">Sumqayıt</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="hero.moveIn">Giriş tarixi</span>
+              <input type="date" id="heroDate" />
+            </label>
+            <label>
+              <span data-i18n="hero.gender">Cinsiyyət</span>
+              <select id="heroGender">
+                <option value="all" data-i18n="opt.any">Fərq etməz</option>
+                <option value="female" data-i18n="opt.female">Qız</option>
+                <option value="male" data-i18n="opt.male">Oğlan</option>
+              </select>
+            </label>
+            <button type="button" id="heroSearch" class="btn btn-primary btn-lg">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <span data-i18n="hero.search">Axtar</span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ STATS BAND ============ -->
+      <section class="stats">
+        <div class="container stats-inner">
+          <div class="stat">
+            <strong>42+</strong>
+            <span data-i18n="stats.properties">Yoxlanılmış obyekt</span>
+          </div>
+          <div class="stat">
+            <strong>318</strong>
+            <span data-i18n="stats.beds">Yataq sayı</span>
+          </div>
+          <div class="stat">
+            <strong>3</strong>
+            <span data-i18n="stats.cities">Şəhər</span>
+          </div>
+          <div class="stat">
+            <strong>24/7</strong>
+            <span data-i18n="stats.support">Dəstək</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HOW IT WORKS ============ -->
+      <section id="how" class="section">
+        <div class="container">
+          <header class="section-head">
+            <span class="eyebrow" data-i18n="how.eyebrow">Sadə proses</span>
+            <h2 data-i18n="how.title">3 addımda yaşayış yeriniz hazırdır</h2>
+            <p data-i18n="how.subtitle">Axtarış, müraciət və köçməyə qədər tam proses onlayn aparılır.</p>
+          </header>
+
+          <div class="steps">
+            <article class="step">
+              <div class="step-num">1</div>
+              <h3 data-i18n="how.step1.title">Axtar və seç</h3>
+              <p data-i18n="how.step1.body">Şəhər, qiymət və cinsiyyət üzrə süzgəcdən keçirin. Real fotolar və qiymətlərlə müqayisə edin.</p>
+            </article>
+            <article class="step">
+              <div class="step-num">2</div>
+              <h3 data-i18n="how.step2.title">Onlayn müraciət et</h3>
+              <p data-i18n="how.step2.body">Tələbə sənədinizi yükləyin. Admin müraciətinizi 24 saat ərzində nəzərdən keçirir.</p>
+            </article>
+            <article class="step">
+              <div class="step-num">3</div>
+              <h3 data-i18n="how.step3.title">Yerinizə köçün</h3>
+              <p data-i18n="how.step3.body">Təsdiq sonrası ödəniş edin və açar sizdə. Sadə, şəffaf, stresssiz.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PLACES CATALOG ============ -->
+      <section id="places" class="section section-alt">
+        <div class="container">
+          <header class="section-head">
+            <span class="eyebrow" data-i18n="places.eyebrow">Aktiv elanlar</span>
+            <h2 data-i18n="places.title">Yaşayış yerləri</h2>
+            <p data-i18n="places.subtitle">Filtrlərdən istifadə edin və xəritədə dərhal yerləşməni görün.</p>
+          </header>
+
+          <div class="catalog">
+            <aside class="filters" aria-label="Filters">
+              <div class="filters-head">
+                <h3 data-i18n="filters.title">Filtrlər</h3>
+                <button type="button" class="btn-text" id="resetFilters" data-i18n="filters.reset">Sıfırla</button>
+              </div>
+
+              <label class="field">
+                <span data-i18n="filters.city">Şəhər</span>
+                <select id="cityFilter">
+                  <option value="all" data-i18n="opt.all">Hamısı</option>
+                  <option value="baku" data-i18n="city.baku">Bakı</option>
+                  <option value="ganja" data-i18n="city.ganja">Gəncə</option>
+                  <option value="sumgayit" data-i18n="city.sumgayit">Sumqayıt</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span data-i18n="filters.type">Obyekt tipi</span>
+                <select id="typeFilter">
+                  <option value="all" data-i18n="opt.all">Hamısı</option>
+                  <option value="hostel" data-i18n="opt.hostel">Yataqxana</option>
+                  <option value="apartment" data-i18n="opt.apartment">Kirayə ev</option>
+                  <option value="hotel" data-i18n="opt.hotel">Hotel</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span data-i18n="filters.gender">Uyğunluq</span>
+                <select id="genderFilter">
+                  <option value="all" data-i18n="opt.all">Hamısı</option>
+                  <option value="female" data-i18n="opt.femaleOnly">Qız üçün</option>
+                  <option value="male" data-i18n="opt.maleOnly">Oğlan üçün</option>
+                  <option value="mixed" data-i18n="opt.mixed">Qarışıq</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span data-i18n="filters.university">Universitet</span>
+                <select id="universityFilter">
+                  <option value="all" data-i18n="opt.all">Hamısı</option>
+                  <option value="BDU">BDU — Bakı Dövlət Universiteti</option>
+                  <option value="ADA">ADA Universiteti</option>
+                  <option value="ASOA">ASOA — Neft və Sənaye Universiteti</option>
+                  <option value="UNEC">UNEC — İqtisad Universiteti</option>
+                  <option value="AzMİU">AzMİU — Memarlıq və İnşaat</option>
+                  <option value="GDU">GDU — Gəncə Dövlət Universiteti</option>
+                  <option value="SDU">SDU — Sumqayıt Dövlət Universiteti</option>
+                  <option value="AzTU">AzTU — Texniki Universitet</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span><span data-i18n="filters.price">Maksimum qiymət</span> · <b id="priceValue">900</b> AZN</span>
+                <input id="priceFilter" type="range" min="150" max="900" value="900" step="10" />
+              </label>
+
+              <label class="checkbox">
+                <input id="wifiFilter" type="checkbox" />
+                <span data-i18n="filters.wifi">Wi-Fi mütləqdir</span>
+              </label>
+
+              <label class="checkbox">
+                <input id="utilityFilter" type="checkbox" />
+                <span data-i18n="filters.utilities">Kommunal daxildir</span>
+              </label>
+            </aside>
+
+            <div class="results">
+              <div class="results-top">
+                <span id="resultCount" data-i18n-template="results.count" data-count="0">0 obyekt</span>
+                <select id="sortFilter" aria-label="Sort">
+                  <option value="recommended" data-i18n="sort.recommended">Tövsiyə olunan</option>
+                  <option value="price" data-i18n="sort.price">Qiymət (aşağıdan)</option>
+                  <option value="vacancy" data-i18n="sort.vacancy">Boş yer (çoxdan)</option>
+                </select>
+              </div>
+              <div id="placeGrid" class="place-grid"></div>
+            </div>
+
+            <aside class="map-panel" aria-label="Map">
+              <div class="map-head">
+                <strong data-i18n="map.title">Xəritə</strong>
+                <span id="mapStatus" data-i18n="map.loading">Yüklənir...</span>
+              </div>
+              <div id="mapCanvas" class="map-canvas"></div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ FEATURES ============ -->
+      <section id="features" class="section">
+        <div class="container">
+          <header class="section-head">
+            <span class="eyebrow" data-i18n="features.eyebrow">Niyə StudentStay</span>
+            <h2 data-i18n="features.title">Tələbələr üçün düşünülmüş platforma</h2>
+          </header>
+
+          <div class="features-grid">
+            <article class="feature">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+              </div>
+              <h3 data-i18n="features.f1.title">Yoxlanılmış obyektlər</h3>
+              <p data-i18n="features.f1.body">Hər bir elan admin tərəfindən təsdiqlənir. Saxta elanlar yoxdur.</p>
+            </article>
+
+            <article class="feature">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <h3 data-i18n="features.f2.title">Real vaxt doluluq</h3>
+              <p data-i18n="features.f2.body">Boş yerlərin sayını saniyə dəqiqliyilə görün. Yanlış məlumat yoxdur.</p>
+            </article>
+
+            <article class="feature">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <h3 data-i18n="features.f3.title">Yalnız tələbələr</h3>
+              <p data-i18n="features.f3.body">Tələbə sənədi yoxlanışı ilə təhlükəsiz və münasib mühit.</p>
+            </article>
+
+            <article class="feature">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3v4M8 3v4M2 11h20"/></svg>
+              </div>
+              <h3 data-i18n="features.f4.title">Pulsuz rezervasiya</h3>
+              <p data-i18n="features.f4.body">Komissiya yoxdur. Onlayn müraciət tamamilə ödənişsizdir.</p>
+            </article>
+
+            <article class="feature">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <h3 data-i18n="features.f5.title">Universitetə yaxın</h3>
+              <p data-i18n="features.f5.body">Bütün obyektlər əsas universitet kampuslarına yaxın yerləşir.</p>
+            </article>
+
+            <article class="feature">
+              <div class="feature-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <h3 data-i18n="features.f6.title">24/7 dəstək</h3>
+              <p data-i18n="features.f6.body">Suallarınıza istənilən vaxt cavab veririk — telefon və ya e-poçt.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ BOOKING ============ -->
+      <section id="booking" class="section section-cta">
+        <div class="container booking-wrap">
+          <header class="section-head center">
+            <span class="eyebrow light" data-i18n="booking.eyebrow">Onlayn müraciət</span>
+            <h2 data-i18n="booking.title">Rezervasiya forması</h2>
+            <p data-i18n="booking.subtitle">Tələbə sənədinizi yükləyin. Admin təsdiqindən sonra yer sizə ayrılır.</p>
+          </header>
+
+          <form id="bookingForm" class="booking-form">
+            <label class="field">
+              <span data-i18n="form.fullName">Ad və soyad</span>
+              <input name="fullName" required data-i18n-placeholder="form.fullName.ph" placeholder="Aysel Məmmədova" />
+            </label>
+            <label class="field">
+              <span data-i18n="form.phone">Telefon</span>
+              <input name="phone" required placeholder="+994 XX XXX XX XX" />
+            </label>
+            <label class="field">
+              <span data-i18n="form.email">E-poçt</span>
+              <input name="email" type="email" required placeholder="email@example.com" />
+            </label>
+            <label class="field">
+              <span data-i18n="form.university">Universitet</span>
+              <input name="university" required data-i18n-placeholder="form.university.ph" placeholder="Universitetin adı" />
+            </label>
+            <label class="field">
+              <span data-i18n="form.faculty">Fakültə / kurs</span>
+              <input name="faculty" data-i18n-placeholder="form.faculty.ph" placeholder="Fakültə, kurs" />
+            </label>
+            <label class="field">
+              <span data-i18n="form.gender">Cinsiyyət</span>
+              <select name="gender" required>
+                <option value="" data-i18n="opt.select">Seçin</option>
+                <option value="female" data-i18n="opt.female">Qız</option>
+                <option value="male" data-i18n="opt.male">Oğlan</option>
+              </select>
+            </label>
+            <label class="field">
+              <span data-i18n="form.moveIn">Giriş tarixi</span>
+              <input name="moveIn" type="date" required />
+            </label>
+            <label class="field">
+              <span data-i18n="form.duration">Qalma müddəti</span>
+              <select name="duration" required>
+                <option value="" data-i18n="opt.select">Seçin</option>
+                <option value="1" data-i18n="opt.dur1">1 ay</option>
+                <option value="3" data-i18n="opt.dur3">3 ay</option>
+                <option value="6" data-i18n="opt.dur6">6 ay</option>
+                <option value="12" data-i18n="opt.dur12">12 ay</option>
+              </select>
+            </label>
+            <label class="field">
+              <span data-i18n="form.document">Tələbə sənədi (PDF / şəkil)</span>
+              <input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+            </label>
+            <label class="field wide">
+              <span data-i18n="form.note">Əlavə qeyd</span>
+              <textarea name="note" rows="4" data-i18n-placeholder="form.note.ph" placeholder="Xüsusi tələblərinizi yazın..."></textarea>
+            </label>
+            <button class="btn btn-primary btn-lg wide" type="submit" data-i18n="form.submit">Müraciət göndər</button>
+            <p class="form-note wide" id="formNote" role="status"></p>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ FAQ ============ -->
+      <section class="section">
+        <div class="container faq-wrap">
+          <header class="section-head center">
+            <span class="eyebrow" data-i18n="faq.eyebrow">FAQ</span>
+            <h2 data-i18n="faq.title">Tez-tez verilən suallar</h2>
+          </header>
+
+          <div class="faq-list">
+            <details>
+              <summary data-i18n="faq.q1">Digər sakinlərin adları görünür?</summary>
+              <p data-i18n="faq.a1">Xeyr. Sistem yalnız statistik məlumat göstərir: tutum, boş yer və cinsiyyət bölgüsü. Şəxsi məlumat heç vaxt paylaşılmır.</p>
+            </details>
+            <details>
+              <summary data-i18n="faq.q2">Tələbə sənədi niyə tələb olunur?</summary>
+              <p data-i18n="faq.a2">Platforma yalnız tələbələr üçün nəzərdə tutulub. Müraciətiniz adminlər tərəfindən yoxlanıldıqdan sonra təsdiqlənir.</p>
+            </details>
+            <details>
+              <summary data-i18n="faq.q3">Doluluq necə yenilənir?</summary>
+              <p data-i18n="faq.a3">Admin təsdiqindən sonra yer sayı avtomatik yenilənir. Backend qurulduqdan sonra real vaxt rejimi tam aktivləşir.</p>
+            </details>
+            <details>
+              <summary data-i18n="faq.q4">Komissiya və ya gizli ödəniş varmı?</summary>
+              <p data-i18n="faq.a4">Xeyr. Müraciət və platforma istifadəsi tamamilə pulsuzdur. Yalnız obyekt sahibinə kirayə ödənilir.</p>
+            </details>
+            <details>
+              <summary data-i18n="faq.q5">Müraciətim nə qədərə cavablanır?</summary>
+              <p data-i18n="faq.a5">Adətən 24 saat ərzində. Təcili hallar üçün +994 50 123 45 67 nömrəsi ilə əlaqə saxlaya bilərsiniz.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ============ FOOTER ============ -->
+    <footer id="contact" class="footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <div class="logo">
+            <span class="logo-mark">S</span>
+            <span class="logo-text">StudentStay</span>
+          </div>
+          <p data-i18n="footer.tagline">Tələbələr üçün yaşayış rezervasiyası və real vaxt doluluq sistemi.</p>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer.platform">Platforma</h4>
+          <a href="#places" data-i18n="nav.places">Yaşayış yerləri</a>
+          <a href="#how" data-i18n="nav.how">Necə işləyir</a>
+          <a href="#features" data-i18n="nav.features">Üstünlüklər</a>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer.contact">Əlaqə</h4>
+          <a href="mailto:info@studentstay.az">info@studentstay.az</a>
+          <a href="tel:+994501234567">+994 50 123 45 67</a>
+          <p data-i18n="footer.address">Bakı, Azərbaycan</p>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer.legal">Hüquqi</h4>
+          <a href="#" data-i18n="footer.terms">İstifadə şərtləri</a>
+          <a href="#" data-i18n="footer.privacy">Məxfilik siyasəti</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 StudentStay. <span data-i18n="footer.rights">Bütün hüquqlar qorunur.</span></span>
+      </div>
+    </footer>
+
+    <!-- ============ PROPERTY DETAIL MODAL ============ -->
+    <div id="placeModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-overlay" data-close></div>
+      <div class="modal-content" role="document">
+        <button class="modal-close" data-close aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <div id="modalBody" class="modal-body"></div>
+      </div>
+    </div>
+
+    <script src="assets/i18n.js"></script>
+    <script src="assets/app.js"></script>
+  </body>
+</html>
