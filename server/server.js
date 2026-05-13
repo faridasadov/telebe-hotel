@@ -113,4 +113,71 @@ app.get('/api/admin/stats', (req, res) => {
   });
 });
 
+// ---- Admin: Get all places (no filters) ----
+app.get('/api/admin/places', (req, res) => {
+  db.all("SELECT * FROM places ORDER BY id DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json((rows || []).map(expandPlace));
+  });
+});
+
+// ---- Admin: Create place ----
+app.post('/api/admin/places', (req, res) => {
+  const p = req.body;
+  const sql = `INSERT INTO places 
+    (name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, description, address, amenities, universities)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  
+  const params = [
+    p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
+    p.female_occupied || 0, p.male_occupied || 0, p.female_free || 0, p.male_free || 0,
+    p.wifi ? 1 : 0, p.utilities ? 1 : 0, p.lat || 40.4, p.lng || 49.8,
+    JSON.stringify(p.images || []), p.description, p.address,
+    JSON.stringify(p.amenities || []), JSON.stringify(p.universities || [])
+  ];
+
+  db.run(sql, params, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: this.lastID });
+  });
+});
+
+// ---- Admin: Update place ----
+app.put('/api/admin/places/:id', (req, res) => {
+  const id = req.params.id;
+  const p = req.body;
+  const sql = `UPDATE places SET 
+    name=?, type=?, city=?, gender=?, price=?, total_spots=?, free_spots=?, 
+    female_occupied=?, male_occupied=?, female_free=?, male_free=?, 
+    wifi=?, utilities=?, description=?, address=?
+    WHERE id=?`;
+  
+  const params = [
+    p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
+    p.female_occupied, p.male_occupied, p.female_free, p.male_free,
+    p.wifi ? 1 : 0, p.utilities ? 1 : 0, p.description, p.address, id
+  ];
+
+  db.run(sql, params, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// ---- Admin: Delete place ----
+app.delete('/api/admin/places/:id', (req, res) => {
+  db.run("DELETE FROM places WHERE id = ?", [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// ---- Admin: Bookings ----
+app.get('/api/admin/bookings', (req, res) => {
+  db.all("SELECT b.*, p.name as place_name FROM bookings b LEFT JOIN places p ON b.place_id = p.id ORDER BY b.created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
 app.listen(PORT, () => console.log(`Server is running on http://localhost:${PORT}`));
