@@ -15,6 +15,10 @@ db.serialize(() => {
     price INTEGER,
     total_spots INTEGER,
     free_spots INTEGER,
+    female_occupied INTEGER DEFAULT 0,
+    male_occupied INTEGER DEFAULT 0,
+    female_free INTEGER DEFAULT 0,
+    male_free INTEGER DEFAULT 0,
     wifi INTEGER,
     utilities INTEGER,
     lat REAL,
@@ -67,7 +71,9 @@ db.serialize(() => {
       {
         name: "Campus House Bakı",
         type: "hostel", city: "baku", gender: "mixed",
-        price: 350, total_spots: 12, free_spots: 4, wifi: 1, utilities: 1,
+        price: 350, total_spots: 12, free_spots: 4,
+        female_occupied: 5, male_occupied: 3, female_free: 2, male_free: 2,
+        wifi: 1, utilities: 1,
         lat: 40.4093, lng: 49.8671,
         images: JSON.stringify([
           "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80",
@@ -90,7 +96,9 @@ db.serialize(() => {
       {
         name: "Gəncə Student Hostel",
         type: "hostel", city: "ganja", gender: "mixed",
-        price: 210, total_spots: 20, free_spots: 1, wifi: 1, utilities: 0,
+        price: 210, total_spots: 20, free_spots: 1,
+        female_occupied: 10, male_occupied: 9, female_free: 1, male_free: 0,
+        wifi: 1, utilities: 0,
         lat: 40.6828, lng: 46.3606,
         images: JSON.stringify([
           "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80",
@@ -111,7 +119,9 @@ db.serialize(() => {
       {
         name: "Sumqayıt Studio",
         type: "apartment", city: "sumgayit", gender: "female",
-        price: 450, total_spots: 4, free_spots: 2, wifi: 1, utilities: 1,
+        price: 450, total_spots: 4, free_spots: 2,
+        female_occupied: 2, male_occupied: 0, female_free: 2, male_free: 0,
+        wifi: 1, utilities: 1,
         lat: 40.5897, lng: 49.6689,
         images: JSON.stringify([
           "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80",
@@ -131,7 +141,9 @@ db.serialize(() => {
       {
         name: "Baku Luxury Rooms",
         type: "hotel", city: "baku", gender: "male",
-        price: 850, total_spots: 10, free_spots: 3, wifi: 1, utilities: 1,
+        price: 850, total_spots: 10, free_spots: 3,
+        female_occupied: 0, male_occupied: 7, female_free: 0, male_free: 3,
+        wifi: 1, utilities: 1,
         lat: 40.3777, lng: 49.8450,
         images: JSON.stringify([
           "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80",
@@ -152,7 +164,9 @@ db.serialize(() => {
       {
         name: "Elite Dormitory",
         type: "hostel", city: "baku", gender: "female",
-        price: 300, total_spots: 30, free_spots: 15, wifi: 1, utilities: 0,
+        price: 300, total_spots: 30, free_spots: 15,
+        female_occupied: 15, male_occupied: 0, female_free: 15, male_free: 0,
+        wifi: 1, utilities: 0,
         lat: 40.3850, lng: 49.8200,
         images: JSON.stringify([
           "https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=1200&q=80",
@@ -173,13 +187,15 @@ db.serialize(() => {
     ];
 
     const stmt = db.prepare(`INSERT INTO places
-      (name, type, city, gender, price, total_spots, free_spots, wifi, utilities,
-       lat, lng, images, virtual_tour, description, address, amenities, universities,
+      (name, type, city, gender, price, total_spots, free_spots,
+       female_occupied, male_occupied, female_free, male_free,
+       wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities,
        rating, review_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
     places.forEach((p) => {
       stmt.run(p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
+        p.female_occupied, p.male_occupied, p.female_free, p.male_free,
         p.wifi, p.utilities, p.lat, p.lng, p.images, p.virtual_tour, p.description,
         p.address, p.amenities, p.universities, p.rating, p.review_count);
     });

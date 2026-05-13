@@ -178,11 +178,24 @@ function placeCard(place) {
 
         <div class="occupancy">
           <div><span>${t("card.beds")}</span><strong>${place.total_spots}</strong></div>
-          <div><span>${t("card.vacant")}</span><strong>${v}</strong></div>
+          <div><span>${t("card.vacant")}</span><strong>${place.free_spots}</strong></div>
           <div><span>${t("card.occupied")}</span><strong>${occupied}</strong></div>
           <div><span>${t("card.occupancy")}</span><strong>${percent}%</strong></div>
         </div>
         <div class="meter"><span style="width: ${percent}%"></span></div>
+
+        <div class="gender-breakdown">
+          <span>${t("card.gender.occupied", { f: place.female_occupied, m: place.male_occupied })}</span>
+          <strong class="vacancy-info">${
+            place.female_free > 0 && place.male_free > 0 
+              ? t("card.gender.free.both", { f: place.female_free, m: place.male_free })
+              : place.female_free > 0 
+                ? t("card.gender.free.f", { n: place.female_free })
+                : place.male_free > 0 
+                  ? t("card.gender.free.m", { n: place.male_free })
+                  : ""
+          }</strong>
+        </div>
 
         ${nearest ? `<div class="card-meta">
           <span class="uni-badge">${ICON.pin}<span>${escHtml(nearest.code)} · ${nearest.distance_min} ${t("modal.minWalk")}</span></span>
@@ -216,8 +229,8 @@ async function fetchPlaces() {
   } catch (e) {
     console.warn("Backend not found, using static fallback.");
     return [
-      { id: 1, name: "Campus House Bakı (Demo)", type: "hostel", city: "baku", gender: "mixed", price: 350, total_spots: 12, free_spots: 4, wifi: 1, utilities: 1, images: ["https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80"], rating: 4.5, review_count: 28, universities: [{code: "BDU", distance_min: 7}] },
-      { id: 2, name: "Gəncə Student Hostel (Demo)", type: "hostel", city: "ganja", gender: "mixed", price: 210, total_spots: 20, free_spots: 1, wifi: 1, utilities: 0, images: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"], rating: 4.0, review_count: 15, universities: [{code: "GDU", distance_min: 5}] }
+      { id: 1, name: "Campus House Bakı (Demo)", type: "hostel", city: "baku", gender: "mixed", price: 350, total_spots: 12, free_spots: 4, female_occupied: 5, male_occupied: 3, female_free: 2, male_free: 2, wifi: 1, utilities: 1, images: ["https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80"], rating: 4.5, review_count: 28, universities: [{code: "BDU", distance_min: 7}] },
+      { id: 2, name: "Gəncə Student Hostel (Demo)", type: "hostel", city: "ganja", gender: "mixed", price: 210, total_spots: 20, free_spots: 1, female_occupied: 10, male_occupied: 9, female_free: 1, male_free: 0, wifi: 1, utilities: 0, images: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"], rating: 4.0, review_count: 15, universities: [{code: "GDU", distance_min: 5}] }
     ];
   }
 }
@@ -417,6 +430,18 @@ function renderModal() {
       <div>
         <h2 id="modalTitle">${escHtml(p.name)}</h2>
         <small>${ICON.pin}<span>${escHtml(p.address || cityName(p.city))}</span></small>
+        <div class="gender-breakdown" style="margin-top: var(--sp-2); border: 1px solid var(--border)">
+          <span>${t("card.gender.occupied", { f: p.female_occupied, m: p.male_occupied })}</span>
+          <strong class="vacancy-info">${
+            p.female_free > 0 && p.male_free > 0 
+              ? t("card.gender.free.both", { f: p.female_free, m: p.male_free })
+              : p.female_free > 0 
+                ? t("card.gender.free.f", { n: p.female_free })
+                : p.male_free > 0 
+                  ? t("card.gender.free.m", { n: p.male_free })
+                  : ""
+          }</strong>
+        </div>
       </div>
       <div class="modal-price">
         <strong>${escHtml(String(p.price))} AZN</strong>
