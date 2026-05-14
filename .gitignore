@@ -5,3 +5,7 @@ node_modules/
 .DS_Store
 dist/
 build/
+server/uploads/
+server/backups/
+server/.node-gyp/
+server/.npm-cache/

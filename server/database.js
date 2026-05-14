@@ -46,9 +46,26 @@ db.serialize(() => {
     duration TEXT,
     status TEXT DEFAULT 'Pending',
     place_id INTEGER,
+    note TEXT,
+    document_name TEXT,
+    document_type TEXT,
+    document_data TEXT,
+    document_path TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(place_id) REFERENCES places(id)
   )`);
+
+  [
+    "ALTER TABLE bookings ADD COLUMN note TEXT",
+    "ALTER TABLE bookings ADD COLUMN document_name TEXT",
+    "ALTER TABLE bookings ADD COLUMN document_type TEXT",
+    "ALTER TABLE bookings ADD COLUMN document_data TEXT",
+    "ALTER TABLE bookings ADD COLUMN document_path TEXT",
+    "ALTER TABLE bookings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+  ].forEach((sql) => db.run(sql, () => {}));
+
+  db.run("UPDATE places SET free_spots = COALESCE(female_free, 0) + COALESCE(male_free, 0)");
 
   // ---- Reviews ----
   db.run(`CREATE TABLE IF NOT EXISTS reviews (

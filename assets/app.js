@@ -1,7 +1,7 @@
 // =========================================
 // StudentStay — Application
 // =========================================
-const API_URL = "http://localhost:3000/api";
+const API_URL = window.location.protocol === "file:" ? "http://localhost:3000/api" : "/api";
 const STORE = { lang: "lang", theme: "theme" };
 
 // ---------- i18n ----------
@@ -587,11 +587,26 @@ document.querySelector("#heroSearch")?.addEventListener("click", () => {
 });
 
 // ---------- Booking form ----------
+function fileToPayload(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve(null);
+    const reader = new FileReader();
+    reader.onload = () => resolve({
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      data: String(reader.result).split(",")[1] || "",
+    });
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 document.querySelector("#bookingForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.currentTarget);
   const data = Object.fromEntries(fd.entries());
-  delete data.document;
+  const file = fd.get("document");
+  data.document = await fileToPayload(file && file.size ? file : null);
   data.placeId = window.selectedPlaceId || null;
   const note = document.querySelector("#formNote");
 
@@ -664,6 +679,18 @@ window.openPlaceModal = openPlaceModal;
 document.querySelector("#langSwitcher")?.addEventListener("change", (e) => applyLang(e.target.value));
 document.querySelector("#themeToggle")?.addEventListener("click", () => applyTheme(getTheme() === "light" ? "dark" : "light"));
 
+// ---------- Locked credit ----------
+function lockDesignerCredit() {
+  const credit = document.querySelector(".designer-credit");
+  if (!credit) return;
+  const text = "Designed by Farid Asadov.";
+  credit.textContent = text;
+  const observer = new MutationObserver(() => {
+    if (credit.textContent !== text) credit.textContent = text;
+  });
+  observer.observe(credit, { childList: true, characterData: true, subtree: true });
+}
+
 // ---------- Stats ----------
 async function updateStats() {
   try {
@@ -685,5 +712,6 @@ async function updateStats() {
   }
   applyTheme(getTheme());
   applyLang(lang); 
+  lockDesignerCredit();
   updateStats();
 })();

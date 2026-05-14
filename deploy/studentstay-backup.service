@@ -1,0 +1,6 @@
+[Unit]
+Description=Backup StudentStay SQLite database
+
+[Service]
+Type=oneshot
+ExecStart=/root/telebe-hotel-main/server/backup-db.sh

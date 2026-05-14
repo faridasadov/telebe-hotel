@@ -1,0 +1,18 @@
+[Unit]
+Description=StudentStay Node.js application
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/telebe-hotel-main/server
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3002
+Environment=ADMIN_USER=admin
+Environment=ADMIN_PASSWORD_HASH=scrypt:f6782a61b40063c89855e432ab914e1b:bd8efb304ac2b5a44c48af21e456bac82fe974d0f0e1dd9116a6614be7110f26f1612ad04444d20ecccbd728a46ca713893c9646eb13133026491edb505122f0
+Environment=ADMIN_NOTIFY_EMAIL=
+
+[Install]
+WantedBy=multi-user.target
