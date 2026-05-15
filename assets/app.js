@@ -1,7 +1,7 @@
 // =========================================
 // StudentStay — Application
 // =========================================
-const API_URL = window.location.protocol === "file:" ? "http://localhost:3000/api" : "/api";
+const API_URL = window.STUDENTSTAY_API_URL || (window.location.protocol === "file:" ? "http://localhost:3000/api" : "/api");
 const STORE = { lang: "lang", theme: "theme" };
 
 // ---------- i18n ----------
@@ -65,6 +65,65 @@ const cityLocal = {
 const cityName = (c) => (cityLocal[getLang()] && cityLocal[getLang()][c]) || c;
 const typeName = (x) => t({ hostel: "opt.hostel", apartment: "opt.apartment", hotel: "opt.hotel" }[x] || "opt.all");
 const genderName = (g) => t({ female: "opt.femaleOnly", male: "opt.maleOnly", mixed: "opt.mixed" }[g] || "opt.all");
+
+const STATIC_PLACES = [
+  {
+    id: 1,
+    name: "Campus House Bakı (Demo)",
+    type: "hostel",
+    city: "baku",
+    gender: "mixed",
+    price: 350,
+    total_spots: 12,
+    free_spots: 4,
+    female_occupied: 5,
+    male_occupied: 3,
+    female_free: 2,
+    male_free: 2,
+    wifi: 1,
+    utilities: 1,
+    address: "Bakı, Elmlər Akademiyası metrosu yaxınlığı",
+    lat: 40.3777,
+    lng: 49.8123,
+    description: "Universitetlərə yaxın, sürətli internet və oxu otağı olan tələbə yaşayışı.",
+    amenities: ["wifi", "kitchen", "laundry", "study_room", "security"],
+    images: ["https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80"],
+    rating: 4.5,
+    review_count: 28,
+    reviews: [
+      { id: 1, author_name: "Aysel", university: "BDU", rating: 5, comment: "Sakit mühit və universitetə yaxın məsafə çox rahatdır." },
+    ],
+    universities: [{ code: "BDU", name: "Bakı Dövlət Universiteti", distance_min: 7 }],
+  },
+  {
+    id: 2,
+    name: "Gəncə Student Hostel (Demo)",
+    type: "hostel",
+    city: "ganja",
+    gender: "mixed",
+    price: 210,
+    total_spots: 20,
+    free_spots: 1,
+    female_occupied: 10,
+    male_occupied: 9,
+    female_free: 1,
+    male_free: 0,
+    wifi: 1,
+    utilities: 0,
+    address: "Gəncə, universitet zonasına yaxın",
+    lat: 40.6828,
+    lng: 46.3606,
+    description: "Tələbələr üçün büdcəyə uyğun, təhlükəsiz və təmiz yataqxana seçimi.",
+    amenities: ["wifi", "kitchen", "security"],
+    images: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"],
+    rating: 4.0,
+    review_count: 15,
+    reviews: [
+      { id: 2, author_name: "Murad", university: "GDU", rating: 4, comment: "Qiymətinə görə yaxşıdır, mərkəzə çıxış rahatdır." },
+    ],
+    universities: [{ code: "GDU", name: "Gəncə Dövlət Universiteti", distance_min: 5 }],
+  },
+];
 
 function getStatus(p) {
   if (p.free_spots <= 0) return { cls: "status-full", label: t("card.status.full") };
@@ -228,10 +287,7 @@ async function fetchPlaces() {
     return data;
   } catch (e) {
     console.warn("Backend not found, using static fallback.");
-    return [
-      { id: 1, name: "Campus House Bakı (Demo)", type: "hostel", city: "baku", gender: "mixed", price: 350, total_spots: 12, free_spots: 4, female_occupied: 5, male_occupied: 3, female_free: 2, male_free: 2, wifi: 1, utilities: 1, images: ["https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80"], rating: 4.5, review_count: 28, universities: [{code: "BDU", distance_min: 7}] },
-      { id: 2, name: "Gəncə Student Hostel (Demo)", type: "hostel", city: "ganja", gender: "mixed", price: 210, total_spots: 20, free_spots: 1, female_occupied: 10, male_occupied: 9, female_free: 1, male_free: 0, wifi: 1, utilities: 0, images: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80"], rating: 4.0, review_count: 15, universities: [{code: "GDU", distance_min: 5}] }
-    ];
+    return STATIC_PLACES;
   }
 }
 
@@ -282,14 +338,22 @@ let galleryIndex = 0;
 async function openPlaceModal(id) {
   try {
     const r = await fetch(`${API_URL}/places/${id}`);
-    if (!r.ok) return;
-    currentPlace = await r.json();
+    currentPlace = r.ok ? await r.json() : STATIC_PLACES.find((p) => String(p.id) === String(id));
+    if (!currentPlace) return;
     galleryIndex = 0;
     renderModal();
     modal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
   } catch (e) {
-    console.error(e);
+    currentPlace = STATIC_PLACES.find((p) => String(p.id) === String(id));
+    if (!currentPlace) {
+      console.error(e);
+      return;
+    }
+    galleryIndex = 0;
+    renderModal();
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
   }
 }
 
