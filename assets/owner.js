@@ -39,14 +39,16 @@ async function providerFetch(url, options = {}) {
 }
 
 function showAuth() {
-  qs("#ownerPanel").classList.add("admin-hidden");
-  qs("#ownerLogout").classList.add("admin-hidden");
+  qs("#ownerPanel")?.classList.add("admin-hidden");
+  qs("#ownerLogout")?.classList.add("admin-hidden");
+  qs("#loginCard")?.classList.remove("admin-hidden");
 }
 
 function showPanel(provider) {
-  qs("#ownerPanel").classList.remove("admin-hidden");
-  qs("#ownerLogout").classList.remove("admin-hidden");
-  qs("#ownerName").textContent = provider.company_name || provider.full_name || "";
+  qs("#ownerPanel")?.classList.remove("admin-hidden");
+  qs("#ownerLogout")?.classList.remove("admin-hidden");
+  qs("#loginCard")?.classList.add("admin-hidden");
+  if (qs("#ownerName")) qs("#ownerName").textContent = provider.company_name || provider.full_name || "";
 }
 
 document.querySelectorAll("[data-owner-tab]").forEach((button) => {
@@ -59,7 +61,7 @@ document.querySelectorAll("[data-owner-tab]").forEach((button) => {
   });
 });
 
-qs("#providerRegisterForm").addEventListener("submit", async (e) => {
+qs("#providerRegisterForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const note = qs("#registerNote");
   const fd = new FormData(e.currentTarget);
@@ -80,7 +82,7 @@ qs("#providerRegisterForm").addEventListener("submit", async (e) => {
   }
 });
 
-qs("#providerLoginForm").addEventListener("submit", async (e) => {
+qs("#providerLoginForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const note = qs("#loginNote");
   const data = Object.fromEntries(new FormData(e.currentTarget).entries());
@@ -99,18 +101,20 @@ qs("#providerLoginForm").addEventListener("submit", async (e) => {
   }
 });
 
-qs("#ownerLogout").addEventListener("click", () => {
+qs("#ownerLogout")?.addEventListener("click", () => {
   providerFetch(`${API_URL}/providers/logout`, { method: "POST" }).catch(() => {});
   showAuth();
 });
 
-qs("#ownerListingForm").addEventListener("submit", async (e) => {
+qs("#ownerListingForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const note = qs("#listingNote");
   const data = Object.fromEntries(new FormData(e.currentTarget).entries());
   data.wifi = Boolean(data.wifi);
   data.utilities = Boolean(data.utilities);
   try {
+    const images = String(data.images || "").split("\n").map((x) => x.trim()).filter(Boolean);
+    if (images.length < 3) throw new Error("Minimum 3 şəkil URL-i əlavə edin");
     const response = await providerFetch(`${API_URL}/providers/listings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -127,6 +131,7 @@ qs("#ownerListingForm").addEventListener("submit", async (e) => {
 });
 
 async function loadListings() {
+  if (!qs("#ownerListings")) return;
   const response = await providerFetch(`${API_URL}/providers/listings`);
   const listings = await response.json();
   qs("#ownerListings").innerHTML = listings.length ? listings.map((item) => `
@@ -140,6 +145,7 @@ async function loadListings() {
 }
 
 async function loadProviderPanel() {
+  if (!qs("#ownerPanel")) return;
   const response = await providerFetch(`${API_URL}/providers/session`);
   const data = await response.json();
   showPanel(data.provider);

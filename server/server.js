@@ -24,6 +24,13 @@ const loginAttempts = new Map();
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 app.use(cors());
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
 app.use(bodyParser.json({ limit: '12mb' }));
 app.use(express.static(path.join(__dirname, '..')));
 
@@ -63,7 +70,7 @@ function requireAdmin(req, res, next) {
 function requireProvider(req, res, next) {
   const token = parseCookies(req)[PROVIDER_COOKIE_NAME] || '';
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  db.get("SELECT id, full_name, company_name, phone, email, status FROM providers WHERE session_token = ? AND status = 'Approved'", [token], (err, provider) => {
+  db.get("SELECT id, full_name, provider_type, company_name, phone, email, status FROM providers WHERE session_token = ? AND status = 'Approved'", [token], (err, provider) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!provider) return res.status(401).json({ error: 'Unauthorized' });
     req.provider = provider;
@@ -195,32 +202,37 @@ function normalizePlacePayload(p) {
     address: p.address || '',
     amenities: toList(p.amenities),
     universities: parseUniversities(p.universities),
+    room_count: parseInt(p.room_count, 10) || 1,
+    metro_distance_min: parseInt(p.metro_distance_min, 10) || 0,
+    min_contract_months: parseInt(p.min_contract_months, 10) || 1,
   };
 }
 
 function insertPlace(p, providerId, cb) {
   const sql = `INSERT INTO places
-    (name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities, provider_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities, provider_id, room_count, metro_distance_min, min_contract_months)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const params = [
     p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
     p.female_occupied, p.male_occupied, p.female_free, p.male_free,
     p.wifi, p.utilities, p.lat, p.lng,
     JSON.stringify(p.images), p.virtual_tour, p.description, p.address,
-    JSON.stringify(p.amenities), JSON.stringify(p.universities), providerId || null
+    JSON.stringify(p.amenities), JSON.stringify(p.universities), providerId || null,
+    p.room_count, p.metro_distance_min, p.min_contract_months
   ];
   db.run(sql, params, cb);
 }
 
 function insertProviderListing(providerId, p, cb) {
   const sql = `INSERT INTO provider_listings
-    (provider_id, name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    (provider_id, name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities, room_count, metro_distance_min, min_contract_months)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   const params = [
     providerId, p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
     p.female_occupied, p.male_occupied, p.female_free, p.male_free,
     p.wifi, p.utilities, p.lat, p.lng, JSON.stringify(p.images), p.virtual_tour,
-    p.description, p.address, JSON.stringify(p.amenities), JSON.stringify(p.universities)
+    p.description, p.address, JSON.stringify(p.amenities), JSON.stringify(p.universities),
+    p.room_count, p.metro_distance_min, p.min_contract_months
   ];
   db.run(sql, params, cb);
 }
@@ -263,7 +275,7 @@ app.get('/api/admin/session', requireAdmin, (req, res) => {
 
 // ---- Provider registration / login ----
 app.post('/api/providers/register', (req, res) => {
-  const { fullName, companyName, phone, email, password, document } = req.body || {};
+  const { fullName, providerType, companyName, phone, email, password, document } = req.body || {};
   if (!fullName || !phone || !email || !password || String(password).length < 8 || !document || !document.data) {
     return res.status(400).json({ error: 'Ad, telefon, e-poçt, minimum 8 simvolluq şifrə və şəxsiyyət sənədi zəruridir' });
   }
@@ -276,10 +288,11 @@ app.post('/api/providers/register', (req, res) => {
   hashPassword(password, (hashErr, passwordHash) => {
     if (hashErr) return res.status(500).json({ error: 'Şifrə hazırlanmadı' });
     db.run(
-      `INSERT INTO providers (full_name, company_name, phone, email, password_hash, id_document_name, id_document_type, id_document_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO providers (full_name, provider_type, company_name, phone, email, password_hash, id_document_name, id_document_type, id_document_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         String(fullName).trim(),
+        ['owner', 'agency'].includes(providerType) ? providerType : 'owner',
         String(companyName || '').trim(),
         String(phone).trim(),
         String(email).trim().toLowerCase(),
@@ -340,6 +353,9 @@ app.post('/api/providers/listings', requireProvider, (req, res) => {
   if (!p.name || !p.address || !p.price || !p.total_spots) {
     return res.status(400).json({ error: 'Ad, ünvan, qiymət və yataq sayı zəruridir' });
   }
+  if (!p.images || p.images.length < 3) {
+    return res.status(400).json({ error: 'Minimum 3 şəkil zəruridir' });
+  }
   insertProviderListing(req.provider.id, p, function (err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ id: this.lastID, status: 'Pending' });
@@ -348,7 +364,7 @@ app.post('/api/providers/listings', requireProvider, (req, res) => {
 
 // ---- List places ----
 app.get('/api/places', (req, res) => {
-  const { city, type, gender, maxPrice, wifi, utilities, university } = req.query;
+  const { city, type, gender, maxPrice, wifi, utilities, university, rooms, maxMetro, ac, heating, minContract } = req.query;
   let query = "SELECT * FROM places WHERE 1=1";
   const params = [];
 
@@ -358,6 +374,11 @@ app.get('/api/places', (req, res) => {
   if (maxPrice) { query += " AND price <= ?"; params.push(parseInt(maxPrice)); }
   if (wifi === 'true') query += " AND wifi = 1";
   if (utilities === 'true') query += " AND utilities = 1";
+  if (rooms && rooms !== 'all') { query += " AND room_count >= ?"; params.push(parseInt(rooms, 10)); }
+  if (maxMetro) { query += " AND metro_distance_min > 0 AND metro_distance_min <= ?"; params.push(parseInt(maxMetro, 10)); }
+  if (minContract) { query += " AND min_contract_months <= ?"; params.push(parseInt(minContract, 10)); }
+  if (ac === 'true') query += " AND amenities LIKE '%\"ac\"%'";
+  if (heating === 'true') query += " AND amenities LIKE '%\"heating\"%'";
   if (university && university !== 'all') {
     query += " AND universities LIKE ?";
     params.push(`%"code":"${university}"%`);
@@ -365,7 +386,16 @@ app.get('/api/places', (req, res) => {
 
   db.all(query, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json((rows || []).map(expandPlace));
+    const ids = [...new Set((rows || []).map((row) => row.provider_id).filter(Boolean))];
+    if (!ids.length) return res.json((rows || []).map(expandPlace));
+    db.all(`SELECT id, status FROM providers WHERE id IN (${ids.map(() => '?').join(',')})`, ids, (providerErr, providers) => {
+      if (providerErr) return res.status(500).json({ error: providerErr.message });
+      const verified = new Set((providers || []).filter((p) => p.status === 'Approved').map((p) => p.id));
+      res.json((rows || []).map((row) => {
+        row.verified_owner = row.provider_id && verified.has(row.provider_id) ? 1 : 0;
+        return expandPlace(row);
+      }));
+    });
   });
 });
 
@@ -502,7 +532,7 @@ app.delete('/api/admin/places/:id', requireAdmin, (req, res) => {
 
 // ---- Admin: provider approvals ----
 app.get('/api/admin/providers', requireAdmin, (req, res) => {
-  db.all("SELECT id, full_name, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers ORDER BY created_at DESC", [], (err, rows) => {
+  db.all("SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers ORDER BY created_at DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });

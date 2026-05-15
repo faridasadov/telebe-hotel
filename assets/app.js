@@ -80,6 +80,10 @@ const STATIC_PLACES = [
     male_free: 2,
     wifi: 1,
     utilities: 1,
+    room_count: 2,
+    metro_distance_min: 8,
+    min_contract_months: 3,
+    verified_owner: 1,
     address: "Bakı, Elmlər Akademiyası metrosu yaxınlığı",
     lat: 40.3777,
     lng: 49.8123,
@@ -108,6 +112,10 @@ const STATIC_PLACES = [
     male_free: 0,
     wifi: 1,
     utilities: 0,
+    room_count: 4,
+    metro_distance_min: 12,
+    min_contract_months: 1,
+    verified_owner: 1,
     address: "Gəncə, universitet zonasına yaxın",
     lat: 40.6828,
     lng: 46.3606,
@@ -197,6 +205,11 @@ const filters = {
   price: priceFilter,
   wifi: document.querySelector("#wifiFilter"),
   utilities: document.querySelector("#utilityFilter"),
+  rooms: document.querySelector("#roomFilter"),
+  metro: document.querySelector("#metroFilter"),
+  contract: document.querySelector("#contractFilter"),
+  ac: document.querySelector("#acFilter"),
+  heating: document.querySelector("#heatingFilter"),
   sort: document.querySelector("#sortFilter"),
 };
 
@@ -229,6 +242,7 @@ function placeCard(place) {
         <div class="tags">
           <span class="tag">${escHtml(typeName(place.type))}</span>
           <span class="tag">${escHtml(genderName(place.gender))}</span>
+          ${place.verified_owner ? `<span class="tag verified-owner">Verified Owner</span>` : ""}
           <span class="tag">${place.utilities ? t("card.tag.utilOn") : t("card.tag.utilOff")}</span>
           <span class="tag">${place.wifi ? t("card.tag.wifiOn") : t("card.tag.wifiOff")}</span>
         </div>
@@ -238,6 +252,8 @@ function placeCard(place) {
           <div><span>${t("card.vacant")}</span><strong>${place.free_spots}</strong></div>
           <div><span>${t("card.occupied")}</span><strong>${occupied}</strong></div>
           <div><span>${t("card.occupancy")}</span><strong>${percent}%</strong></div>
+          <div><span>${t("card.rooms")}</span><strong>${place.room_count || 1}</strong></div>
+          <div><span>${t("card.metro")}</span><strong>${place.metro_distance_min || "—"}</strong></div>
         </div>
         <div class="meter"><span style="width: ${percent}%"></span></div>
 
@@ -274,6 +290,11 @@ async function fetchPlaces() {
     maxPrice: filters.price.value,
     wifi: filters.wifi.checked,
     utilities: filters.utilities.checked,
+    rooms: filters.rooms ? filters.rooms.value : "all",
+    maxMetro: filters.metro ? filters.metro.value : "",
+    minContract: filters.contract ? filters.contract.value : "",
+    ac: filters.ac ? filters.ac.checked : false,
+    heating: filters.heating ? filters.heating.checked : false,
   });
 
   try {
@@ -637,6 +658,11 @@ document.querySelector("#resetFilters")?.addEventListener("click", () => {
   filters.price.value = "900";
   filters.wifi.checked = false;
   filters.utilities.checked = false;
+  if (filters.rooms) filters.rooms.value = "all";
+  if (filters.metro) filters.metro.value = "";
+  if (filters.contract) filters.contract.value = "";
+  if (filters.ac) filters.ac.checked = false;
+  if (filters.heating) filters.heating.checked = false;
   filters.sort.value = "recommended";
   renderPlaces();
 });

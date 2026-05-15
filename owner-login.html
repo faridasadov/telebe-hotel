@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="az" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudentStay — Ev sahibi girişi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260515-owner-login" />
+    <style>
+      body { min-height: 100vh; }
+      .owner-shell { padding: 48px 20px; }
+      .owner-grid { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
+      .owner-card { background: color-mix(in srgb, var(--bg-card) 94%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 28px; backdrop-filter: blur(14px); }
+      .owner-card h1, .owner-card h2 { margin-top: 0; }
+      .owner-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .owner-form .wide { grid-column: 1 / -1; }
+      .owner-note { min-height: 22px; font-weight: 700; }
+      .owner-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
+      .owner-list { display: grid; gap: 12px; }
+      .owner-listing { border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; background: var(--bg-subtle); }
+      .owner-listing strong { display: block; margin-bottom: 6px; }
+      .owner-status { display: inline-flex; padding: 5px 10px; border-radius: var(--r-pill); font-size: 12px; font-weight: 900; }
+      .owner-status.Pending { background: rgba(245, 158, 11, 0.14); color: var(--warning); }
+      .owner-status.Approved { background: rgba(16, 185, 129, 0.14); color: var(--success); }
+      .owner-status.Rejected { background: rgba(239, 68, 68, 0.14); color: var(--danger); }
+      @media (max-width: 900px) { .owner-grid, .owner-form { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header-inner">
+        <a class="logo" href="index.html">
+          <span class="logo-mark">S</span>
+          <span class="logo-text">StudentStay</span>
+        </a>
+        <nav class="nav">
+          <a href="index.html">Sayta qayıt</a>
+          <a href="owner.html">Qeydiyyat</a>
+          <button class="btn btn-sm admin-hidden" id="ownerLogout" type="button">Çıxış</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="owner-shell">
+      <div class="container owner-grid">
+        <aside class="owner-card" id="loginCard">
+          <form id="providerLoginForm" class="owner-form">
+            <h1 class="wide">Ev sahibi girişi</h1>
+            <label class="field wide"><span>Login</span><input name="email" type="email" autocomplete="username" required></label>
+            <label class="field wide"><span>Parol</span><input name="password" type="password" autocomplete="current-password" required></label>
+            <button class="btn btn-primary btn-lg wide" type="submit">Panelə daxil ol</button>
+            <p class="owner-note wide" id="loginNote"></p>
+            <p class="meta wide">Hesabınız yoxdur? <a href="owner.html">Qeydiyyatdan keçin</a>.</p>
+          </form>
+        </aside>
+
+        <section id="ownerPanel" class="owner-card admin-hidden">
+          <div class="owner-panel-head">
+            <div>
+              <h2>Elan paneli</h2>
+              <p class="meta" id="ownerName"></p>
+            </div>
+          </div>
+
+          <form id="ownerListingForm" class="owner-form">
+            <label class="field"><span>Obyekt adı</span><input name="name" required></label>
+            <label class="field"><span>Şəhər</span>
+              <select name="city">
+                <option value="baku">Bakı</option>
+                <option value="ganja">Gəncə</option>
+                <option value="sumgayit">Sumqayıt</option>
+              </select>
+            </label>
+            <label class="field"><span>Tip</span>
+              <select name="type">
+                <option value="hostel">Yataqxana</option>
+                <option value="apartment">Kirayə ev</option>
+                <option value="hotel">Hotel</option>
+              </select>
+            </label>
+            <label class="field"><span>Uyğunluq</span>
+              <select name="gender">
+                <option value="mixed">Qarışıq</option>
+                <option value="female">Qız üçün</option>
+                <option value="male">Oğlan üçün</option>
+              </select>
+            </label>
+            <label class="field"><span>Aylıq qiymət</span><input name="price" type="number" min="1" required></label>
+            <label class="field"><span>Otaq sayı</span><input name="room_count" type="number" min="1" value="1" required></label>
+            <label class="field"><span>Cəmi yataq</span><input name="total_spots" type="number" min="1" required></label>
+            <label class="field"><span>Metro məsafəsi (dəq)</span><input name="metro_distance_min" type="number" min="0" value="0"></label>
+            <label class="field"><span>Minimum müqavilə (ay)</span><input name="min_contract_months" type="number" min="1" value="1"></label>
+            <label class="field"><span>Boş qız yeri</span><input name="female_free" type="number" min="0" value="0"></label>
+            <label class="field"><span>Boş oğlan yeri</span><input name="male_free" type="number" min="0" value="0"></label>
+            <label class="field"><span>Qalan qızlar</span><input name="female_occupied" type="number" min="0" value="0"></label>
+            <label class="field"><span>Qalan oğlanlar</span><input name="male_occupied" type="number" min="0" value="0"></label>
+            <label class="field"><span>Latitude</span><input name="lat" type="number" step="0.000001"></label>
+            <label class="field"><span>Longitude</span><input name="lng" type="number" step="0.000001"></label>
+            <label class="field wide"><span>Ünvan</span><input name="address" required></label>
+            <label class="field wide"><span>Şəkil URL-ləri (hər sətirdə bir URL)</span><textarea name="images" rows="3"></textarea></label>
+            <label class="field wide"><span>Təsvir</span><textarea name="description" rows="3"></textarea></label>
+            <label class="field wide"><span>İmkanlar (wifi, kitchen, laundry...)</span><textarea name="amenities" rows="2"></textarea></label>
+            <label class="field wide"><span>Universitetlər (CODE | Ad | dəqiqə)</span><textarea name="universities" rows="3"></textarea></label>
+            <label><input type="checkbox" name="wifi"> Wi-Fi var</label>
+            <label><input type="checkbox" name="utilities"> Kommunal daxildir</label>
+            <button class="btn btn-primary btn-lg wide" type="submit">Elanı yoxlamaya göndər</button>
+            <p class="owner-note wide" id="listingNote"></p>
+          </form>
+
+          <h2>Göndərilən elanlar</h2>
+          <div id="ownerListings" class="owner-list"></div>
+        </section>
+      </div>
+    </main>
+
+    <script src="assets/owner.js?v=20260515-owner-login"></script>
+  </body>
+</html>

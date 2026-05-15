@@ -4,7 +4,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" data-i18n="meta.description" content="Tələbələr üçün yoxlanılmış yaşayış rezervasiya platforması" />
+    <meta name="robots" content="index, follow" />
     <title data-i18n="meta.title">StudentStay — Tələbələr üçün yaşayış</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "StudentStay",
+        "url": "https://faridasadov.github.io/telebe-hotel/",
+        "description": "Tələbələr üçün yoxlanılmış yaşayış rezervasiya platforması",
+        "inLanguage": ["az", "ru", "en"]
+      }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -215,6 +226,47 @@
               <label class="checkbox">
                 <input id="utilityFilter" type="checkbox" />
                 <span data-i18n="filters.utilities">Kommunal daxildir</span>
+              </label>
+
+              <label>
+                <span data-i18n="filters.rooms">Minimum otaq sayı</span>
+                <select id="roomFilter">
+                  <option value="all" data-i18n="opt.all">Hamısı</option>
+                  <option value="1">1+</option>
+                  <option value="2">2+</option>
+                  <option value="3">3+</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="filters.metro">Metroya maksimum məsafə</span>
+                <select id="metroFilter">
+                  <option value="" data-i18n="opt.all">Hamısı</option>
+                  <option value="5">5 dəq</option>
+                  <option value="10">10 dəq</option>
+                  <option value="15">15 dəq</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="filters.contract">Minimum müqavilə müddəti</span>
+                <select id="contractFilter">
+                  <option value="" data-i18n="opt.all">Hamısı</option>
+                  <option value="1">1 ay</option>
+                  <option value="3">3 ay</option>
+                  <option value="6">6 ay</option>
+                  <option value="12">12 ay</option>
+                </select>
+              </label>
+
+              <label class="checkbox">
+                <input id="acFilter" type="checkbox" />
+                <span data-i18n="filters.ac">Kondisioner</span>
+              </label>
+
+              <label class="checkbox">
+                <input id="heatingFilter" type="checkbox" />
+                <span data-i18n="filters.heating">İstilik sistemi</span>
               </label>
             </aside>
 
@@ -444,6 +496,7 @@
           <h4 data-i18n="footer.legal">Hüquqi</h4>
           <a href="#" data-i18n="footer.terms">İstifadə şərtləri</a>
           <a href="#" data-i18n="footer.privacy">Məxfilik siyasəti</a>
+          <a href="owner-login.html" style="margin-top:10px; display:inline-block; font-size:12px; opacity:0.6">Ev sahibi girişi</a>
           <a href="admin.html" style="margin-top:10px; display:inline-block; font-size:12px; opacity:0.6">Admin Panel</a>
         </div>
       </div>

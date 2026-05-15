@@ -855,6 +855,13 @@ input[type="range"]::-webkit-slider-thumb {
   font-weight: 600;
 }
 
+.verified-owner {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.26);
+  font-weight: 900;
+}
+
 .occupancy {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

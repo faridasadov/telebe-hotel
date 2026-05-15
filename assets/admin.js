@@ -161,7 +161,7 @@ async function fetchProviders() {
       <td>
         <div class="provider-meta">
           <strong>${escHtml(p.full_name)}</strong>
-          <small>${escHtml(p.company_name || "")}</small>
+          <small>${escHtml(p.provider_type === "agency" ? "Agentlik" : "Ev sahibi")} · ${escHtml(p.company_name || "")}</small>
           ${p.admin_note ? `<span class="muted-small">${escHtml(p.admin_note)}</span>` : ""}
         </div>
       </td>
@@ -324,7 +324,10 @@ async function editPlace(id) {
   placeForm.type.value = p.type || "hostel";
   placeForm.gender.value = p.gender || "mixed";
   placeForm.price.value = p.price || 0;
+  placeForm.room_count.value = p.room_count || 1;
   placeForm.total_spots.value = p.total_spots || 0;
+  placeForm.metro_distance_min.value = p.metro_distance_min || 0;
+  placeForm.min_contract_months.value = p.min_contract_months || 1;
   placeForm.lat.value = p.lat || "";
   placeForm.lng.value = p.lng || "";
   placeForm.female_occupied.value = p.female_occupied || 0;

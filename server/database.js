@@ -31,10 +31,16 @@ db.serialize(() => {
     universities TEXT,
     rating REAL DEFAULT 0,
     review_count INTEGER DEFAULT 0,
-    provider_id INTEGER
+    provider_id INTEGER,
+    room_count INTEGER DEFAULT 1,
+    metro_distance_min INTEGER DEFAULT 0,
+    min_contract_months INTEGER DEFAULT 1
   )`);
 
   db.run("ALTER TABLE places ADD COLUMN provider_id INTEGER", () => {});
+  db.run("ALTER TABLE places ADD COLUMN room_count INTEGER DEFAULT 1", () => {});
+  db.run("ALTER TABLE places ADD COLUMN metro_distance_min INTEGER DEFAULT 0", () => {});
+  db.run("ALTER TABLE places ADD COLUMN min_contract_months INTEGER DEFAULT 1", () => {});
 
   // ---- Bookings ----
   db.run(`CREATE TABLE IF NOT EXISTS bookings (
@@ -72,6 +78,7 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS providers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name TEXT NOT NULL,
+    provider_type TEXT DEFAULT 'owner',
     company_name TEXT,
     phone TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
@@ -85,6 +92,8 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
+
+  db.run("ALTER TABLE providers ADD COLUMN provider_type TEXT DEFAULT 'owner'", () => {});
 
   db.run(`CREATE TABLE IF NOT EXISTS provider_listings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,11 +122,18 @@ db.serialize(() => {
     address TEXT,
     amenities TEXT,
     universities TEXT,
+    room_count INTEGER DEFAULT 1,
+    metro_distance_min INTEGER DEFAULT 0,
+    min_contract_months INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(provider_id) REFERENCES providers(id),
     FOREIGN KEY(published_place_id) REFERENCES places(id)
   )`);
+
+  db.run("ALTER TABLE provider_listings ADD COLUMN room_count INTEGER DEFAULT 1", () => {});
+  db.run("ALTER TABLE provider_listings ADD COLUMN metro_distance_min INTEGER DEFAULT 0", () => {});
+  db.run("ALTER TABLE provider_listings ADD COLUMN min_contract_months INTEGER DEFAULT 1", () => {});
 
   db.run("UPDATE places SET free_spots = COALESCE(female_free, 0) + COALESCE(male_free, 0)");
 
