@@ -1202,6 +1202,31 @@ input[type="range"]::-webkit-slider-thumb {
   user-select: none;
 }
 
+.provider-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-6);
+  align-items: center;
+  padding: var(--sp-8);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--brand-soft) 72%, transparent), color-mix(in srgb, var(--bg-card) 94%, transparent)),
+    var(--bg-card);
+  box-shadow: var(--shadow-lg);
+}
+
+.provider-band h2 {
+  margin: var(--sp-2) 0 var(--sp-2);
+  font-size: var(--fs-2xl);
+}
+
+.provider-band p {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 760px;
+}
+
 /* ==========================================
    Responsive
    ========================================== */
@@ -1228,6 +1253,7 @@ input[type="range"]::-webkit-slider-thumb {
   .filters { position: static; }
   .booking-form { grid-template-columns: 1fr; }
   .footer-inner { grid-template-columns: 1fr 1fr; }
+  .provider-band { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {

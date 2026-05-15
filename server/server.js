@@ -14,6 +14,7 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || 'scrypt:f6782a61b
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || crypto.randomBytes(32).toString('hex');
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || '';
 const COOKIE_NAME = 'studentstay_admin';
+const PROVIDER_COOKIE_NAME = 'studentstay_provider';
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
@@ -43,12 +44,31 @@ function clearAdminCookie(res) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
 }
 
+function setProviderCookie(res, token) {
+  res.setHeader('Set-Cookie', `${PROVIDER_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`);
+}
+
+function clearProviderCookie(res) {
+  res.setHeader('Set-Cookie', `${PROVIDER_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
+}
+
 function requireAdmin(req, res, next) {
   const header = req.get('authorization') || '';
   const cookieToken = parseCookies(req)[COOKIE_NAME] || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : cookieToken;
   if (token && token === ADMIN_TOKEN) return next();
   return res.status(401).json({ error: 'Unauthorized' });
+}
+
+function requireProvider(req, res, next) {
+  const token = parseCookies(req)[PROVIDER_COOKIE_NAME] || '';
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  db.get("SELECT id, full_name, company_name, phone, email, status FROM providers WHERE session_token = ? AND status = 'Approved'", [token], (err, provider) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!provider) return res.status(401).json({ error: 'Unauthorized' });
+    req.provider = provider;
+    next();
+  });
 }
 
 function verifyPassword(password, encodedHash, cb) {
@@ -59,6 +79,14 @@ function verifyPassword(password, encodedHash, cb) {
     const actual = Buffer.from(key.toString('hex'), 'hex');
     const target = Buffer.from(expected, 'hex');
     cb(actual.length === target.length && crypto.timingSafeEqual(actual, target));
+  });
+}
+
+function hashPassword(password, cb) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  crypto.scrypt(String(password || ''), salt, 64, (err, key) => {
+    if (err) return cb(err);
+    cb(null, `scrypt:${salt}:${key.toString('hex')}`);
   });
 }
 
@@ -170,6 +198,33 @@ function normalizePlacePayload(p) {
   };
 }
 
+function insertPlace(p, providerId, cb) {
+  const sql = `INSERT INTO places
+    (name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities, provider_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const params = [
+    p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
+    p.female_occupied, p.male_occupied, p.female_free, p.male_free,
+    p.wifi, p.utilities, p.lat, p.lng,
+    JSON.stringify(p.images), p.virtual_tour, p.description, p.address,
+    JSON.stringify(p.amenities), JSON.stringify(p.universities), providerId || null
+  ];
+  db.run(sql, params, cb);
+}
+
+function insertProviderListing(providerId, p, cb) {
+  const sql = `INSERT INTO provider_listings
+    (provider_id, name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const params = [
+    providerId, p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
+    p.female_occupied, p.male_occupied, p.female_free, p.male_free,
+    p.wifi, p.utilities, p.lat, p.lng, JSON.stringify(p.images), p.virtual_tour,
+    p.description, p.address, JSON.stringify(p.amenities), JSON.stringify(p.universities)
+  ];
+  db.run(sql, params, cb);
+}
+
 // Parse JSON columns into objects when returning rows
 function expandPlace(row) {
   if (!row) return row;
@@ -204,6 +259,91 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
 
 app.get('/api/admin/session', requireAdmin, (req, res) => {
   res.json({ user: ADMIN_USER });
+});
+
+// ---- Provider registration / login ----
+app.post('/api/providers/register', (req, res) => {
+  const { fullName, companyName, phone, email, password, document } = req.body || {};
+  if (!fullName || !phone || !email || !password || String(password).length < 8 || !document || !document.data) {
+    return res.status(400).json({ error: 'Ad, telefon, e-poçt, minimum 8 simvolluq şifrə və şəxsiyyət sənədi zəruridir' });
+  }
+  let doc = {};
+  try {
+    doc = saveDocument(document);
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ error: err.message });
+  }
+  hashPassword(password, (hashErr, passwordHash) => {
+    if (hashErr) return res.status(500).json({ error: 'Şifrə hazırlanmadı' });
+    db.run(
+      `INSERT INTO providers (full_name, company_name, phone, email, password_hash, id_document_name, id_document_type, id_document_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        String(fullName).trim(),
+        String(companyName || '').trim(),
+        String(phone).trim(),
+        String(email).trim().toLowerCase(),
+        passwordHash,
+        doc.document_name || null,
+        doc.document_type || null,
+        doc.document_path || null,
+      ],
+      function (err) {
+        if (err) {
+          removeStoredDocument(doc.document_path);
+          if (String(err.message).includes('UNIQUE')) return res.status(409).json({ error: 'Bu e-poçt artıq qeydiyyatdan keçib' });
+          return res.status(500).json({ error: err.message });
+        }
+        res.json({ id: this.lastID, status: 'Pending' });
+      }
+    );
+  });
+});
+
+app.post('/api/providers/login', (req, res) => {
+  const { email, password } = req.body || {};
+  db.get("SELECT * FROM providers WHERE email = ?", [String(email || '').trim().toLowerCase()], (err, provider) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!provider) return res.status(401).json({ error: 'Yanlış e-poçt və ya şifrə' });
+    if (provider.status !== 'Approved') return res.status(403).json({ error: 'Hesab admin təsdiqindən sonra aktiv olacaq' });
+    verifyPassword(password, provider.password_hash, (ok) => {
+      if (!ok) return res.status(401).json({ error: 'Yanlış e-poçt və ya şifrə' });
+      const token = crypto.randomBytes(32).toString('hex');
+      db.run("UPDATE providers SET session_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [token, provider.id], (updateErr) => {
+        if (updateErr) return res.status(500).json({ error: updateErr.message });
+        setProviderCookie(res, token);
+        res.json({ id: provider.id, name: provider.full_name, email: provider.email });
+      });
+    });
+  });
+});
+
+app.post('/api/providers/logout', requireProvider, (req, res) => {
+  db.run("UPDATE providers SET session_token = NULL WHERE id = ?", [req.provider.id], () => {});
+  clearProviderCookie(res);
+  res.json({ success: true });
+});
+
+app.get('/api/providers/session', requireProvider, (req, res) => {
+  res.json({ provider: req.provider });
+});
+
+app.get('/api/providers/listings', requireProvider, (req, res) => {
+  db.all("SELECT * FROM provider_listings WHERE provider_id = ? ORDER BY created_at DESC", [req.provider.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json((rows || []).map(expandPlace));
+  });
+});
+
+app.post('/api/providers/listings', requireProvider, (req, res) => {
+  const p = normalizePlacePayload(req.body || {});
+  if (!p.name || !p.address || !p.price || !p.total_spots) {
+    return res.status(400).json({ error: 'Ad, ünvan, qiymət və yataq sayı zəruridir' });
+  }
+  insertProviderListing(req.provider.id, p, function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: this.lastID, status: 'Pending' });
+  });
 });
 
 // ---- List places ----
@@ -322,19 +462,7 @@ app.get('/api/admin/places', requireAdmin, (req, res) => {
 app.post('/api/admin/places', requireAdmin, (req, res) => {
   const p = normalizePlacePayload(req.body || {});
   if (!p.name) return res.status(400).json({ error: 'Ad zəruridir' });
-  const sql = `INSERT INTO places 
-    (name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  
-  const params = [
-    p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
-    p.female_occupied, p.male_occupied, p.female_free, p.male_free,
-    p.wifi, p.utilities, p.lat, p.lng,
-    JSON.stringify(p.images), p.virtual_tour, p.description, p.address,
-    JSON.stringify(p.amenities), JSON.stringify(p.universities)
-  ];
-
-  db.run(sql, params, function(err) {
+  insertPlace(p, null, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ id: this.lastID });
   });
@@ -369,6 +497,78 @@ app.delete('/api/admin/places/:id', requireAdmin, (req, res) => {
   db.run("DELETE FROM places WHERE id = ?", [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
+  });
+});
+
+// ---- Admin: provider approvals ----
+app.get('/api/admin/providers', requireAdmin, (req, res) => {
+  db.all("SELECT id, full_name, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers ORDER BY created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.put('/api/admin/providers/:id/status', requireAdmin, (req, res) => {
+  const status = req.body && req.body.status;
+  const note = String((req.body && req.body.note) || '').slice(0, 500);
+  if (!['Pending', 'Approved', 'Rejected'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  db.run(
+    "UPDATE providers SET status = ?, admin_note = ?, session_token = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [status, note, req.params.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+app.get('/api/admin/providers/:id/document', requireAdmin, (req, res) => {
+  db.get("SELECT id_document_name, id_document_type, id_document_path FROM providers WHERE id = ?", [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row || !row.id_document_path) return res.status(404).json({ error: 'Document not found' });
+    const fullPath = path.resolve(__dirname, row.id_document_path);
+    if (!fullPath.startsWith(UPLOAD_DIR + path.sep) || !fs.existsSync(fullPath)) return res.status(404).json({ error: 'Document not found' });
+    res.json({
+      document_name: row.id_document_name,
+      document_type: row.id_document_type,
+      document_data: fs.readFileSync(fullPath).toString('base64'),
+    });
+  });
+});
+
+app.get('/api/admin/provider-listings', requireAdmin, (req, res) => {
+  db.all(`SELECT l.*, p.full_name as provider_name, p.company_name as provider_company, p.email as provider_email, p.phone as provider_phone
+          FROM provider_listings l
+          JOIN providers p ON p.id = l.provider_id
+          ORDER BY l.created_at DESC`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json((rows || []).map(expandPlace));
+  });
+});
+
+app.put('/api/admin/provider-listings/:id/status', requireAdmin, (req, res) => {
+  const status = req.body && req.body.status;
+  const note = String((req.body && req.body.note) || '').slice(0, 500);
+  if (!['Pending', 'Approved', 'Rejected'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  db.get("SELECT * FROM provider_listings WHERE id = ?", [req.params.id], (err, listing) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    const finish = (placeId) => {
+      db.run(
+        "UPDATE provider_listings SET status = ?, admin_note = ?, published_place_id = COALESCE(?, published_place_id), updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [status, note, placeId || null, listing.id],
+        (updateErr) => {
+          if (updateErr) return res.status(500).json({ error: updateErr.message });
+          res.json({ success: true, published_place_id: placeId || listing.published_place_id || null });
+        }
+      );
+    };
+    if (status !== 'Approved' || listing.published_place_id) return finish(null);
+    const p = normalizePlacePayload(expandPlace(listing));
+    insertPlace(p, listing.provider_id, function (insertErr) {
+      if (insertErr) return res.status(500).json({ error: insertErr.message });
+      finish(this.lastID);
+    });
   });
 });
 

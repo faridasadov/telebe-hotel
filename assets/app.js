@@ -3,9 +3,13 @@
 // =========================================
 const API_URL = window.STUDENTSTAY_API_URL || (window.location.protocol === "file:" ? "http://localhost:3000/api" : "/api");
 const STORE = { lang: "lang", theme: "theme" };
+const SUPPORTED_LANGS = ["az", "ru", "en"];
 
 // ---------- i18n ----------
-const getLang = () => localStorage.getItem(STORE.lang) || "az";
+const getLang = () => {
+  const lang = localStorage.getItem(STORE.lang) || "az";
+  return SUPPORTED_LANGS.includes(lang) ? lang : "az";
+};
 
 function t(key, vars) {
   const dict = window.I18N[getLang()] || window.I18N.az;
@@ -15,9 +19,10 @@ function t(key, vars) {
 }
 
 function applyLang(lang) {
+  if (!SUPPORTED_LANGS.includes(lang)) lang = "az";
   localStorage.setItem(STORE.lang, lang);
   document.documentElement.lang = lang;
-  document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  document.documentElement.dir = "ltr";
 
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     const key = el.dataset.i18n;
@@ -54,13 +59,6 @@ const cityLocal = {
   az: { baku: "Bakı", ganja: "Gəncə", sumgayit: "Sumqayıt" },
   ru: { baku: "Баку", ganja: "Гянджа", sumgayit: "Сумгайыт" },
   en: { baku: "Baku", ganja: "Ganja", sumgayit: "Sumgayit" },
-  tr: { baku: "Bakü", ganja: "Gence", sumgayit: "Sumqayit" },
-  es: { baku: "Bakú", ganja: "Ganja", sumgayit: "Sumgayit" },
-  fr: { baku: "Bakou", ganja: "Gandja", sumgayit: "Soumgaït" },
-  de: { baku: "Baku", ganja: "Gəncə", sumgayit: "Sumqayıt" },
-  zh: { baku: "巴库", ganja: "占贾", sumgayit: "苏姆盖特" },
-  hi: { baku: "बाकू", ganja: "गांजा", sumgayit: "सुमगायित" },
-  ar: { baku: "باكو", ganja: "غانجا", sumgayit: "سومغايت" },
 };
 const cityName = (c) => (cityLocal[getLang()] && cityLocal[getLang()][c]) || c;
 const typeName = (x) => t({ hostel: "opt.hostel", apartment: "opt.apartment", hotel: "opt.hotel" }[x] || "opt.all");

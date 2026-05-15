@@ -30,8 +30,11 @@ db.serialize(() => {
     amenities TEXT,
     universities TEXT,
     rating REAL DEFAULT 0,
-    review_count INTEGER DEFAULT 0
+    review_count INTEGER DEFAULT 0,
+    provider_id INTEGER
   )`);
+
+  db.run("ALTER TABLE places ADD COLUMN provider_id INTEGER", () => {});
 
   // ---- Bookings ----
   db.run(`CREATE TABLE IF NOT EXISTS bookings (
@@ -64,6 +67,57 @@ db.serialize(() => {
     "ALTER TABLE bookings ADD COLUMN document_path TEXT",
     "ALTER TABLE bookings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
   ].forEach((sql) => db.run(sql, () => {}));
+
+  // ---- Property providers / owners ----
+  db.run(`CREATE TABLE IF NOT EXISTS providers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    full_name TEXT NOT NULL,
+    company_name TEXT,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    id_document_name TEXT,
+    id_document_type TEXT,
+    id_document_path TEXT,
+    status TEXT DEFAULT 'Pending',
+    admin_note TEXT,
+    session_token TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS provider_listings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_id INTEGER NOT NULL,
+    status TEXT DEFAULT 'Pending',
+    admin_note TEXT,
+    published_place_id INTEGER,
+    name TEXT NOT NULL,
+    type TEXT,
+    city TEXT,
+    gender TEXT,
+    price INTEGER,
+    total_spots INTEGER,
+    free_spots INTEGER,
+    female_occupied INTEGER DEFAULT 0,
+    male_occupied INTEGER DEFAULT 0,
+    female_free INTEGER DEFAULT 0,
+    male_free INTEGER DEFAULT 0,
+    wifi INTEGER,
+    utilities INTEGER,
+    lat REAL,
+    lng REAL,
+    images TEXT,
+    virtual_tour TEXT,
+    description TEXT,
+    address TEXT,
+    amenities TEXT,
+    universities TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(provider_id) REFERENCES providers(id),
+    FOREIGN KEY(published_place_id) REFERENCES places(id)
+  )`);
 
   db.run("UPDATE places SET free_spots = COALESCE(female_free, 0) + COALESCE(male_free, 0)");
 

@@ -73,8 +73,12 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     const tab = btn.dataset.tab;
     qs("#tabPlaces").style.display = tab === "places" ? "block" : "none";
     qs("#tabBookings").style.display = tab === "bookings" ? "block" : "none";
+    qs("#tabProviders").style.display = tab === "providers" ? "block" : "none";
+    qs("#tabProviderListings").style.display = tab === "providerListings" ? "block" : "none";
     if (tab === "places") fetchPlaces();
     if (tab === "bookings") fetchBookings();
+    if (tab === "providers") fetchProviders();
+    if (tab === "providerListings") fetchProviderListings();
   });
 });
 
@@ -148,6 +152,99 @@ async function fetchBookings() {
   `).join("");
 }
 
+async function fetchProviders() {
+  const response = await authFetch(`${API_URL}/admin/providers`);
+  const data = await response.json();
+  qs("#providersTableBody").innerHTML = data.map((p) => `
+    <tr>
+      <td>${new Date(p.created_at).toLocaleDateString()}</td>
+      <td>
+        <div class="provider-meta">
+          <strong>${escHtml(p.full_name)}</strong>
+          <small>${escHtml(p.company_name || "")}</small>
+          ${p.admin_note ? `<span class="muted-small">${escHtml(p.admin_note)}</span>` : ""}
+        </div>
+      </td>
+      <td>${escHtml(p.phone)}<br><small>${escHtml(p.email)}</small></td>
+      <td><span class="status ${statusClass(p.status)}">${escHtml(p.status)}</span></td>
+      <td>
+        <div class="booking-actions">
+          <button class="btn btn-sm" onclick="setProviderStatus(${p.id}, 'Approved')" ${p.status === "Approved" ? "disabled" : ""}>Təsdiq</button>
+          <button class="btn btn-danger btn-sm" onclick="setProviderStatus(${p.id}, 'Rejected')" ${p.status === "Rejected" ? "disabled" : ""}>İmtina</button>
+          <button class="btn btn-sm" onclick="openProviderDocument(${p.id})">Sənəd</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function setProviderStatus(id, status) {
+  const note = status === "Rejected" ? prompt("İmtina səbəbi") || "" : "";
+  const response = await authFetch(`${API_URL}/admin/providers/${id}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, note }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    alert(data.error || "Status dəyişmədi");
+    return;
+  }
+  fetchProviders();
+}
+
+async function openProviderDocument(id) {
+  const response = await authFetch(`${API_URL}/admin/providers/${id}/document`);
+  const doc = await response.json();
+  if (!response.ok) {
+    alert(doc.error || "Sənəd tapılmadı");
+    return;
+  }
+  openBase64Document(doc);
+}
+
+async function fetchProviderListings() {
+  const response = await authFetch(`${API_URL}/admin/provider-listings`);
+  const data = await response.json();
+  qs("#providerListingsTableBody").innerHTML = data.map((l) => `
+    <tr>
+      <td>${new Date(l.created_at).toLocaleDateString()}</td>
+      <td>
+        <strong>${escHtml(l.name)}</strong><br>
+        <small>${escHtml(l.city)} · ${escHtml(l.type)} · ${escHtml(l.price)} AZN</small>
+        <span class="muted-small">${escHtml(l.address || "")}</span>
+        ${l.admin_note ? `<span class="muted-small">${escHtml(l.admin_note)}</span>` : ""}
+      </td>
+      <td>${escHtml(l.provider_name)}<br><small>${escHtml(l.provider_email)} · ${escHtml(l.provider_phone)}</small></td>
+      <td><span class="status ${statusClass(l.status)}">${escHtml(l.status)}</span></td>
+      <td>
+        <div class="booking-actions">
+          <button class="btn btn-sm" onclick="setProviderListingStatus(${l.id}, 'Approved')" ${l.status === "Approved" ? "disabled" : ""}>Yayımla</button>
+          <button class="btn btn-danger btn-sm" onclick="setProviderListingStatus(${l.id}, 'Rejected')" ${l.status === "Rejected" ? "disabled" : ""}>İmtina</button>
+          <button class="btn btn-sm" onclick="setProviderListingStatus(${l.id}, 'Pending')" ${l.status === "Pending" ? "disabled" : ""}>Gözlət</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function setProviderListingStatus(id, status) {
+  const note = status === "Rejected" ? prompt("İmtina səbəbi") || "" : "";
+  const response = await authFetch(`${API_URL}/admin/provider-listings/${id}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, note }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    alert(data.error || "Elan statusu dəyişmədi");
+    return;
+  }
+  fetchProviderListings();
+  fetchPlaces();
+  fetchStats();
+}
+
 async function setBookingStatus(id, status) {
   const response = await authFetch(`${API_URL}/admin/bookings/${id}/status`, {
     method: "PUT",
@@ -171,6 +268,10 @@ async function openDocument(id) {
     alert(doc.error || "Sənəd tapılmadı");
     return;
   }
+  openBase64Document(doc);
+}
+
+function openBase64Document(doc) {
   const binary = atob(doc.document_data);
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
   const url = URL.createObjectURL(new Blob([bytes], { type: doc.document_type || "application/octet-stream" }));

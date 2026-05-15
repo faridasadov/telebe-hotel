@@ -36,6 +36,7 @@
       .status-rejected { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
       .status-pending { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
       .muted-small { display: block; color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+      .provider-meta { display: grid; gap: 3px; }
     </style>
   </head>
   <body>
@@ -73,6 +74,8 @@
       <div class="tab-nav">
         <div class="tab-btn active" data-tab="places">Obyektlər</div>
         <div class="tab-btn" data-tab="bookings">Müraciətlər</div>
+        <div class="tab-btn" data-tab="providers">Ev sahibləri</div>
+        <div class="tab-btn" data-tab="providerListings">Sahib elanları</div>
       </div>
 
       <div id="tabPlaces">
@@ -110,6 +113,38 @@
             </tr>
           </thead>
           <tbody id="bookingsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="tabProviders" style="display: none">
+        <h2>Ev sahibi qeydiyyatları</h2>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Tarix</th>
+              <th>Sahib</th>
+              <th>Əlaqə</th>
+              <th>Status</th>
+              <th>Əməliyyatlar</th>
+            </tr>
+          </thead>
+          <tbody id="providersTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="tabProviderListings" style="display: none">
+        <h2>Sahiblərdən gələn elanlar</h2>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Tarix</th>
+              <th>Elan</th>
+              <th>Sahib</th>
+              <th>Status</th>
+              <th>Əməliyyatlar</th>
+            </tr>
+          </thead>
+          <tbody id="providerListingsTableBody"></tbody>
         </table>
       </div>
     </div>
