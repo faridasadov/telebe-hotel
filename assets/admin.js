@@ -1,6 +1,7 @@
 const API_URL = window.location.protocol === "file:" ? "http://localhost:3000/api" : "/api";
 
 const qs = (selector) => document.querySelector(selector);
+const field = (form, name) => form && form.elements ? form.elements[name] : null;
 
 function escHtml(value) {
   return String(value ?? "")
@@ -49,7 +50,7 @@ qs("#loginForm").addEventListener("submit", async (e) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Giriş alınmadı");
     await authFetch(`${API_URL}/admin/session`);
-    e.currentTarget.reset();
+    if (typeof e.currentTarget.reset === "function") e.currentTarget.reset();
     showAdmin();
     await loadDashboard();
   } catch (err) {
@@ -294,9 +295,10 @@ async function deleteBooking(id) {
 const modal = qs("#adminModal");
 const placeForm = qs("#placeForm");
 
-qs("#addPlaceBtn").addEventListener("click", () => {
+qs("#addPlaceBtn")?.addEventListener("click", () => {
+  if (!placeForm || !modal) return;
   placeForm.reset();
-  placeForm.id.value = "";
+  field(placeForm, "id").value = "";
   qs("#modalTitle").textContent = "Yeni Obyekt Əlavə Et";
   modal.classList.add("active");
 });
@@ -316,37 +318,38 @@ function universitiesToLines(values) {
 }
 
 async function editPlace(id) {
+  if (!placeForm || !modal) return;
   const response = await fetch(`${API_URL}/places/${id}`);
   const p = await response.json();
-  placeForm.id.value = p.id;
-  placeForm.name.value = p.name || "";
-  placeForm.city.value = p.city || "baku";
-  placeForm.type.value = p.type || "hostel";
-  placeForm.gender.value = p.gender || "mixed";
-  placeForm.price.value = p.price || 0;
-  placeForm.room_count.value = p.room_count || 1;
-  placeForm.total_spots.value = p.total_spots || 0;
-  placeForm.metro_distance_min.value = p.metro_distance_min || 0;
-  placeForm.min_contract_months.value = p.min_contract_months || 1;
-  placeForm.lat.value = p.lat || "";
-  placeForm.lng.value = p.lng || "";
-  placeForm.female_occupied.value = p.female_occupied || 0;
-  placeForm.female_free.value = p.female_free || 0;
-  placeForm.male_occupied.value = p.male_occupied || 0;
-  placeForm.male_free.value = p.male_free || 0;
-  placeForm.address.value = p.address || "";
-  placeForm.images.value = listToLines(p.images);
-  placeForm.virtual_tour.value = p.virtual_tour || "";
-  placeForm.description.value = p.description || "";
-  placeForm.amenities.value = listToLines(p.amenities);
-  placeForm.universities.value = universitiesToLines(p.universities);
-  placeForm.wifi.checked = !!p.wifi;
-  placeForm.utilities.checked = !!p.utilities;
+  field(placeForm, "id").value = p.id;
+  field(placeForm, "name").value = p.name || "";
+  field(placeForm, "city").value = p.city || "baku";
+  field(placeForm, "type").value = p.type || "hostel";
+  field(placeForm, "gender").value = p.gender || "mixed";
+  field(placeForm, "price").value = p.price || 0;
+  field(placeForm, "room_count").value = p.room_count || 1;
+  field(placeForm, "total_spots").value = p.total_spots || 0;
+  field(placeForm, "metro_distance_min").value = p.metro_distance_min || 0;
+  field(placeForm, "min_contract_months").value = p.min_contract_months || 1;
+  field(placeForm, "lat").value = p.lat || "";
+  field(placeForm, "lng").value = p.lng || "";
+  field(placeForm, "female_occupied").value = p.female_occupied || 0;
+  field(placeForm, "female_free").value = p.female_free || 0;
+  field(placeForm, "male_occupied").value = p.male_occupied || 0;
+  field(placeForm, "male_free").value = p.male_free || 0;
+  field(placeForm, "address").value = p.address || "";
+  field(placeForm, "images").value = listToLines(p.images);
+  field(placeForm, "virtual_tour").value = p.virtual_tour || "";
+  field(placeForm, "description").value = p.description || "";
+  field(placeForm, "amenities").value = listToLines(p.amenities);
+  field(placeForm, "universities").value = universitiesToLines(p.universities);
+  field(placeForm, "wifi").checked = !!p.wifi;
+  field(placeForm, "utilities").checked = !!p.utilities;
   qs("#modalTitle").textContent = "Obyekti Redaktə Et";
   modal.classList.add("active");
 }
 
-placeForm.addEventListener("submit", async (e) => {
+placeForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(placeForm).entries());
   ["price", "total_spots", "female_occupied", "female_free", "male_occupied", "male_free"].forEach((key) => {
@@ -354,10 +357,10 @@ placeForm.addEventListener("submit", async (e) => {
   });
   data.lat = data.lat ? Number(data.lat) : "";
   data.lng = data.lng ? Number(data.lng) : "";
-  data.wifi = placeForm.wifi.checked;
-  data.utilities = placeForm.utilities.checked;
+  data.wifi = field(placeForm, "wifi").checked;
+  data.utilities = field(placeForm, "utilities").checked;
 
-  const id = placeForm.id.value;
+  const id = field(placeForm, "id").value;
   const response = await authFetch(id ? `${API_URL}/admin/places/${id}` : `${API_URL}/admin/places`, {
     method: id ? "PUT" : "POST",
     headers: { "Content-Type": "application/json" },
