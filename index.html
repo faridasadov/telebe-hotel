@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-    <link rel="stylesheet" href="assets/styles.css?v=20260514-visual-login" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260520-cabinets" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   </head>
@@ -56,6 +56,7 @@
             <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           </button>
 
+          <a class="btn btn-sm" href="student.html">Tələbə girişi</a>
           <a class="btn btn-primary btn-sm" href="#booking" data-i18n="cta.start">Başla</a>
         </div>
       </div>
@@ -214,6 +215,11 @@
               </label>
 
               <label class="field">
+                <span>Minimum qiymət · <b id="minPriceValue">150</b> AZN</span>
+                <input id="minPriceFilter" type="range" min="150" max="900" value="150" step="10" />
+              </label>
+
+              <label class="field">
                 <span><span data-i18n="filters.price">Maksimum qiymət</span> · <b id="priceValue">900</b> AZN</span>
                 <input id="priceFilter" type="range" min="150" max="900" value="900" step="10" />
               </label>
@@ -293,6 +299,24 @@
         </div>
       </section>
 
+      <section class="section">
+        <div class="container provider-band">
+          <div>
+            <span class="eyebrow">Status izləmə</span>
+            <h2>Mənim rezervasiyamı yoxla</h2>
+            <p>Rezervasiya göndərdikdən sonra verilən Tracking ID ilə statusu login olmadan yoxlayın.</p>
+          </div>
+          <form id="trackingForm" class="search-card" style="max-width:520px">
+            <label>
+              <span>Tracking ID</span>
+              <input name="code" type="text" placeholder="SS-..." required>
+            </label>
+            <button class="btn btn-primary btn-lg" type="submit">Yoxla</button>
+            <p class="form-note" id="trackingNote" role="status"></p>
+          </form>
+        </div>
+      </section>
+
       <!-- ============ FEATURES ============ -->
       <section id="features" class="section">
         <div class="container">
@@ -365,11 +389,11 @@
           <form id="bookingForm" class="booking-form">
             <label class="field">
               <span data-i18n="form.fullName">Ad və soyad</span>
-              <input name="fullName" required data-i18n-placeholder="form.fullName.ph" placeholder="Aysel Məmmədova" />
+              <input name="fullName" type="text" required data-i18n-placeholder="form.fullName.ph" placeholder="Aysel Məmmədova" />
             </label>
             <label class="field">
               <span data-i18n="form.phone">Telefon</span>
-              <input name="phone" required placeholder="+994 XX XXX XX XX" />
+              <input name="phone" type="tel" required placeholder="+994 XX XXX XX XX" />
             </label>
             <label class="field">
               <span data-i18n="form.email">E-poçt</span>
@@ -377,11 +401,11 @@
             </label>
             <label class="field">
               <span data-i18n="form.university">Universitet</span>
-              <input name="university" required data-i18n-placeholder="form.university.ph" placeholder="Universitetin adı" />
+              <input name="university" type="text" required data-i18n-placeholder="form.university.ph" placeholder="Universitetin adı" />
             </label>
             <label class="field">
               <span data-i18n="form.faculty">Fakültə / kurs</span>
-              <input name="faculty" data-i18n-placeholder="form.faculty.ph" placeholder="Fakültə, kurs" />
+              <input name="faculty" type="text" data-i18n-placeholder="form.faculty.ph" placeholder="Fakültə, kurs" />
             </label>
             <label class="field">
               <span data-i18n="form.gender">Cinsiyyət</span>
@@ -516,7 +540,25 @@
       </div>
     </div>
 
+    <div id="reportModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="modal-overlay" data-report-close></div>
+      <div class="modal-content modal-form" role="document">
+        <button class="modal-close" data-report-close aria-label="Close">&times;</button>
+        <div class="modal-body">
+          <h2>Saxta elan bildir</h2>
+          <form id="reportForm" class="booking-form">
+            <input type="hidden" name="placeId">
+            <label class="field"><span>Adınız</span><input name="reporterName" type="text"></label>
+            <label class="field"><span>Əlaqə</span><input name="reporterContact" type="text" placeholder="Telefon və ya e-poçt"></label>
+            <label class="field wide"><span>Səbəb</span><textarea name="reason" rows="4" required placeholder="Niyə bu elanı şübhəli hesab edirsiniz?"></textarea></label>
+            <button class="btn btn-primary btn-lg wide" type="submit">Bildir</button>
+            <p class="form-note wide" id="reportNote" role="status"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <script src="assets/i18n.js"></script>
-    <script src="assets/app.js?v=20260514-booking-docs"></script>
+    <script src="assets/app.js?v=20260520-cabinets"></script>
   </body>
 </html>

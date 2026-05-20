@@ -24,6 +24,10 @@ function fileToPayload(file) {
   });
 }
 
+function filesToPayload(files) {
+  return Promise.all(Array.from(files || []).map(fileToPayload));
+}
+
 function setNote(el, text, ok = false) {
   el.textContent = text;
   el.style.color = ok ? "var(--success)" : "var(--danger)";
@@ -109,12 +113,15 @@ qs("#ownerLogout")?.addEventListener("click", () => {
 qs("#ownerListingForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const note = qs("#listingNote");
-  const data = Object.fromEntries(new FormData(e.currentTarget).entries());
+  const fd = new FormData(e.currentTarget);
+  const data = Object.fromEntries(fd.entries());
   data.wifi = Boolean(data.wifi);
   data.utilities = Boolean(data.utilities);
   try {
+    data.image_uploads = await filesToPayload(fd.getAll("imageFiles").filter((file) => file && file.size));
     const images = String(data.images || "").split("\n").map((x) => x.trim()).filter(Boolean);
-    if (images.length < 3) throw new Error("Minimum 3 şəkil URL-i əlavə edin");
+    if (images.length + data.image_uploads.length < 3) throw new Error("Minimum 3 şəkil əlavə edin");
+    delete data.imageFiles;
     const response = await providerFetch(`${API_URL}/providers/listings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -144,12 +151,64 @@ async function loadListings() {
   `).join("") : `<p class="meta">Hələ elan göndərilməyib.</p>`;
 }
 
+function placeEditForm(item) {
+  return `
+    <form class="owner-form" data-place-update="${escHtml(item.id)}">
+      <label class="field"><span>Qiymət</span><input name="price" type="number" min="1" value="${escHtml(item.price)}" required></label>
+      <label class="field"><span>Otaq sayı</span><input name="room_count" type="number" min="1" value="${escHtml(item.room_count || 1)}" required></label>
+      <label class="field"><span>Cəmi yataq</span><input name="total_spots" type="number" min="1" value="${escHtml(item.total_spots)}" required></label>
+      <label class="field"><span>Boş qız yeri</span><input name="female_free" type="number" min="0" value="${escHtml(item.female_free || 0)}"></label>
+      <label class="field"><span>Boş oğlan yeri</span><input name="male_free" type="number" min="0" value="${escHtml(item.male_free || 0)}"></label>
+      <label class="field"><span>Qalan qızlar</span><input name="female_occupied" type="number" min="0" value="${escHtml(item.female_occupied || 0)}"></label>
+      <label class="field"><span>Qalan oğlanlar</span><input name="male_occupied" type="number" min="0" value="${escHtml(item.male_occupied || 0)}"></label>
+      <label class="field"><span>Minimum müqavilə</span><input name="min_contract_months" type="number" min="1" value="${escHtml(item.min_contract_months || 1)}"></label>
+      <button class="btn btn-primary wide" type="submit">Dəyişikliyi təsdiqə göndər</button>
+      <p class="owner-note wide" data-place-note></p>
+    </form>
+  `;
+}
+
+async function loadOwnerPlaces() {
+  if (!qs("#ownerPlaces")) return;
+  const response = await providerFetch(`${API_URL}/providers/places`);
+  const places = await response.json();
+  qs("#ownerPlaces").innerHTML = places.length ? places.map((item) => `
+    <article class="owner-listing">
+      <strong>${escHtml(item.name)}</strong>
+      <p class="meta">${escHtml(item.city)} · ${escHtml(item.price)} AZN · Boş: ${escHtml(item.free_spots)} / ${escHtml(item.total_spots)}</p>
+      ${placeEditForm(item)}
+    </article>
+  `).join("") : `<p class="meta">Hələ yayımlanmış elanınız yoxdur.</p>`;
+}
+
+document.addEventListener("submit", async (e) => {
+  const form = e.target.closest("[data-place-update]");
+  if (!form) return;
+  e.preventDefault();
+  const note = form.querySelector("[data-place-note]");
+  const data = Object.fromEntries(new FormData(form).entries());
+  try {
+    const response = await providerFetch(`${API_URL}/providers/places/${form.dataset.placeUpdate}/update-request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Dəyişiklik göndərilmədi");
+    setNote(note, "Dəyişiklik admin təsdiqinə göndərildi.", true);
+    await loadListings();
+  } catch (err) {
+    setNote(note, err.message);
+  }
+});
+
 async function loadProviderPanel() {
   if (!qs("#ownerPanel")) return;
   const response = await providerFetch(`${API_URL}/providers/session`);
   const data = await response.json();
   showPanel(data.provider);
   await loadListings();
+  await loadOwnerPlaces();
 }
 
 (async function initOwner() {

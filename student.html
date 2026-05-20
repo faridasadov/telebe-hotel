@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="az" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudentStay — Tələbə kabineti</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260520-student" />
+    <style>
+      body { min-height: 100vh; }
+      .student-shell { padding: 48px 20px; }
+      .student-grid { display: grid; grid-template-columns: minmax(300px, 460px) minmax(0, 1fr); gap: 24px; align-items: start; }
+      .student-card { background: color-mix(in srgb, var(--bg-card) 94%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 28px; backdrop-filter: blur(14px); }
+      .student-card h1, .student-card h2 { margin-top: 0; }
+      .student-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .student-form .wide { grid-column: 1 / -1; }
+      .student-note { min-height: 22px; font-weight: 700; }
+      .student-tabs { display: inline-flex; gap: 6px; padding: 6px; border: 1px solid var(--border); border-radius: var(--r-pill); margin-bottom: 18px; }
+      .student-tab { padding: 10px 16px; border-radius: var(--r-pill); font-weight: 900; color: var(--text-muted); cursor: pointer; }
+      .student-tab.active { color: #fff; background: linear-gradient(135deg, var(--brand), var(--accent-2)); }
+      .status-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px; }
+      .status-step { padding: 10px; border-radius: var(--r-md); background: var(--bg-subtle); color: var(--text-muted); font-weight: 900; text-align: center; font-size: 12px; }
+      .status-step.active { color: #fff; background: linear-gradient(135deg, var(--brand), var(--accent-2)); }
+      .booking-item { border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; background: var(--bg-subtle); margin-bottom: 12px; }
+      .booking-item strong { display: block; }
+      .student-hidden { display: none !important; }
+      @media (max-width: 900px) { .student-grid, .student-form { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header-inner">
+        <a class="logo" href="index.html">
+          <span class="logo-mark">S</span>
+          <span class="logo-text">StudentStay</span>
+        </a>
+        <nav class="nav">
+          <a href="index.html">Sayta qayıt</a>
+          <button class="btn btn-sm student-hidden" id="studentLogout" type="button">Çıxış</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="student-shell">
+      <div class="container student-grid">
+        <aside class="student-card" id="studentAuth">
+          <div class="student-tabs">
+            <button class="student-tab active" type="button" data-student-tab="login">Giriş</button>
+            <button class="student-tab" type="button" data-student-tab="register">Qeydiyyat</button>
+          </div>
+
+          <form id="studentLoginForm" class="student-form">
+            <h1 class="wide">Tələbə girişi</h1>
+            <label class="field wide"><span>E-poçt</span><input name="email" type="email" autocomplete="username" required></label>
+            <label class="field wide"><span>Parol</span><input name="password" type="password" autocomplete="current-password" required></label>
+            <button class="btn btn-primary btn-lg wide" type="submit">Kabinetə daxil ol</button>
+            <p class="student-note wide" id="studentLoginNote"></p>
+          </form>
+
+          <form id="studentRegisterForm" class="student-form student-hidden">
+            <h1 class="wide">Tələbə qeydiyyatı</h1>
+            <label class="field wide"><span>Ad və soyad</span><input name="fullName" type="text" required></label>
+            <label class="field"><span>Telefon</span><input name="phone" type="tel" placeholder="+994 XX XXX XX XX"></label>
+            <label class="field"><span>E-poçt</span><input name="email" type="email" autocomplete="username" required></label>
+            <label class="field"><span>Universitet</span><input name="university" type="text" required></label>
+            <label class="field"><span>Parol</span><input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
+            <label class="field wide"><span>Tələbə sənədi</span><input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+            <button class="btn btn-primary btn-lg wide" type="submit">Yoxlamaya göndər</button>
+            <p class="student-note wide" id="studentRegisterNote"></p>
+          </form>
+        </aside>
+
+        <section id="studentPanel" class="student-card student-hidden">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:16px;margin-bottom:18px">
+            <div>
+              <h2>Rezervasiyalarım</h2>
+              <p class="meta" id="studentName"></p>
+            </div>
+            <span class="status" id="studentStatus">Pending</span>
+          </div>
+          <div class="status-steps">
+            <div class="status-step" data-account-step="Pending">Pending</div>
+            <div class="status-step" data-account-step="Approved">Approved</div>
+            <div class="status-step" data-account-step="Rejected">Rejected</div>
+          </div>
+          <p class="meta" id="studentAdminNote"></p>
+          <div id="studentBookings"></div>
+        </section>
+      </div>
+    </main>
+
+    <script src="assets/student.js?v=20260520-student"></script>
+  </body>
+</html>

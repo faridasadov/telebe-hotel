@@ -54,8 +54,10 @@ db.serialize(() => {
     move_in TEXT,
     duration TEXT,
     status TEXT DEFAULT 'Pending',
+    tracking_code TEXT UNIQUE,
     place_id INTEGER,
     note TEXT,
+    admin_note TEXT,
     document_name TEXT,
     document_type TEXT,
     document_data TEXT,
@@ -67,12 +69,34 @@ db.serialize(() => {
 
   [
     "ALTER TABLE bookings ADD COLUMN note TEXT",
+    "ALTER TABLE bookings ADD COLUMN admin_note TEXT",
+    "ALTER TABLE bookings ADD COLUMN tracking_code TEXT",
     "ALTER TABLE bookings ADD COLUMN document_name TEXT",
     "ALTER TABLE bookings ADD COLUMN document_type TEXT",
     "ALTER TABLE bookings ADD COLUMN document_data TEXT",
     "ALTER TABLE bookings ADD COLUMN document_path TEXT",
     "ALTER TABLE bookings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
   ].forEach((sql) => db.run(sql, () => {}));
+
+  // ---- Students ----
+  db.run(`CREATE TABLE IF NOT EXISTS students (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    phone TEXT,
+    university TEXT,
+    password_hash TEXT NOT NULL,
+    document_name TEXT,
+    document_type TEXT,
+    document_path TEXT,
+    status TEXT DEFAULT 'Pending',
+    admin_note TEXT,
+    session_token TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.run("ALTER TABLE students ADD COLUMN admin_note TEXT", () => {});
 
   // ---- Property providers / owners ----
   db.run(`CREATE TABLE IF NOT EXISTS providers (
@@ -134,6 +158,32 @@ db.serialize(() => {
   db.run("ALTER TABLE provider_listings ADD COLUMN room_count INTEGER DEFAULT 1", () => {});
   db.run("ALTER TABLE provider_listings ADD COLUMN metro_distance_min INTEGER DEFAULT 0", () => {});
   db.run("ALTER TABLE provider_listings ADD COLUMN min_contract_months INTEGER DEFAULT 1", () => {});
+
+  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_tracking_code ON bookings(tracking_code)`);
+
+  // ---- Moderation / audit ----
+  db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor TEXT NOT NULL,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id INTEGER,
+    details TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    place_id INTEGER,
+    reporter_name TEXT,
+    reporter_contact TEXT,
+    reason TEXT NOT NULL,
+    status TEXT DEFAULT 'Pending',
+    admin_note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(place_id) REFERENCES places(id)
+  )`);
 
   db.run("UPDATE places SET free_spots = COALESCE(female_free, 0) + COALESCE(male_free, 0)");
 

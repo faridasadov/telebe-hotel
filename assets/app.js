@@ -195,6 +195,8 @@ function starRow(rating, count, big = false) {
 // ---------- DOM ----------
 const placeGrid = document.querySelector("#placeGrid");
 const resultCount = document.querySelector("#resultCount");
+const minPriceFilter = document.querySelector("#minPriceFilter");
+const minPriceValue = document.querySelector("#minPriceValue");
 const priceFilter = document.querySelector("#priceFilter");
 const priceValue = document.querySelector("#priceValue");
 const filters = {
@@ -202,6 +204,7 @@ const filters = {
   type: document.querySelector("#typeFilter"),
   gender: document.querySelector("#genderFilter"),
   university: document.querySelector("#universityFilter"),
+  minPrice: minPriceFilter,
   price: priceFilter,
   wifi: document.querySelector("#wifiFilter"),
   utilities: document.querySelector("#utilityFilter"),
@@ -274,7 +277,10 @@ function placeCard(place) {
           <span class="uni-badge">${ICON.pin}<span>${escHtml(nearest.code)} · ${nearest.distance_min} ${t("modal.minWalk")}</span></span>
         </div>` : ""}
 
-        <a class="btn btn-primary" href="#" data-open-place="${place.id}">${t("card.apply")} →</a>
+        <div class="card-actions">
+          <a class="btn btn-primary" href="#" data-open-place="${place.id}">${t("card.apply")} →</a>
+          <button class="btn btn-sm" type="button" data-report-place="${place.id}">Şikayət et</button>
+        </div>
       </div>
     </article>
   `;
@@ -287,6 +293,7 @@ async function fetchPlaces() {
     type: filters.type.value,
     gender: filters.gender.value,
     university: filters.university ? filters.university.value : "all",
+    minPrice: filters.minPrice ? filters.minPrice.value : "150",
     maxPrice: filters.price.value,
     wifi: filters.wifi.checked,
     utilities: filters.utilities.checked,
@@ -312,6 +319,7 @@ async function fetchPlaces() {
 
 async function renderPlaces() {
   if (!placeGrid) return;
+  if (minPriceValue && filters.minPrice) minPriceValue.textContent = filters.minPrice.value;
   priceValue.textContent = filters.price.value;
   const data = await fetchPlaces();
 
@@ -340,6 +348,10 @@ document.addEventListener("click", (e) => {
   }
   // Close modal
   if (e.target.closest("[data-close]")) closeModal();
+  if (e.target.closest("[data-report-place]")) {
+    e.preventDefault();
+    openReportModal(e.target.closest("[data-report-place]").dataset.reportPlace);
+  }
 });
 
 document.addEventListener("keydown", (e) => {
@@ -549,6 +561,7 @@ function renderModal() {
         <strong>${escHtml(String(p.price))} AZN</strong>
         <span>${t("modal.perMonth")}</span>
       </div>
+      <button class="btn btn-sm" type="button" data-report-place="${p.id}">Şikayət et</button>
       <a class="btn btn-primary btn-lg" href="#booking" id="modalBook">${t("modal.bookNow")} →</a>
     </div>
   `;
@@ -630,6 +643,51 @@ function renderModal() {
   }
 }
 
+const reportModal = document.querySelector("#reportModal");
+const reportForm = document.querySelector("#reportForm");
+
+function openReportModal(placeId) {
+  if (!reportModal || !reportForm) return;
+  reportForm.elements.placeId.value = placeId;
+  qsReport("#reportNote").textContent = "";
+  reportModal.setAttribute("aria-hidden", "false");
+}
+
+function closeReportModal() {
+  if (!reportModal) return;
+  reportModal.setAttribute("aria-hidden", "true");
+}
+
+function qsReport(selector) {
+  return reportModal ? reportModal.querySelector(selector) : null;
+}
+
+document.querySelectorAll("[data-report-close]").forEach((el) => {
+  el.addEventListener("click", closeReportModal);
+});
+
+reportForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const note = qsReport("#reportNote");
+  const payload = Object.fromEntries(new FormData(reportForm).entries());
+  try {
+    const r = await fetch(`${API_URL}/reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Report göndərilmədi");
+    note.textContent = "Report göndərildi. Adminlər yoxlayacaq.";
+    note.style.color = "var(--success)";
+    reportForm.reset();
+    setTimeout(closeReportModal, 900);
+  } catch (err) {
+    note.textContent = err.message;
+    note.style.color = "var(--danger)";
+  }
+});
+
 function galleryStep(dir) {
   if (!currentPlace || !currentPlace.images || !currentPlace.images.length) return;
   const len = currentPlace.images.length;
@@ -655,6 +713,7 @@ document.querySelector("#resetFilters")?.addEventListener("click", () => {
   filters.type.value = "all";
   filters.gender.value = "all";
   if (filters.university) filters.university.value = "all";
+  if (filters.minPrice) filters.minPrice.value = "150";
   filters.price.value = "900";
   filters.wifi.checked = false;
   filters.utilities.checked = false;
@@ -705,7 +764,8 @@ document.querySelector("#bookingForm")?.addEventListener("submit", async (e) => 
       body: JSON.stringify(data),
     });
     if (r.ok) {
-      note.textContent = t("form.success");
+      const payload = await r.json().catch(() => ({}));
+      note.textContent = `${t("form.success")} Tracking ID: ${payload.trackingCode || payload.id || ""}`;
       note.style.color = "var(--success)";
       e.target.reset();
     } else {
@@ -714,6 +774,22 @@ document.querySelector("#bookingForm")?.addEventListener("submit", async (e) => 
     }
   } catch {
     note.textContent = t("form.error");
+    note.style.color = "var(--danger)";
+  }
+});
+
+document.querySelector("#trackingForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const note = document.querySelector("#trackingNote");
+  const code = new FormData(e.currentTarget).get("code");
+  try {
+    const r = await fetch(`${API_URL}/bookings/status/${encodeURIComponent(String(code || "").trim())}`);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Status tapılmadı");
+    note.textContent = `${data.place_name || "Rezervasiya"}: ${data.status}${data.admin_note ? ` · ${data.admin_note}` : ""}`;
+    note.style.color = "var(--success)";
+  } catch (err) {
+    note.textContent = err.message;
     note.style.color = "var(--danger)";
   }
 });
@@ -782,12 +858,13 @@ function lockDesignerCredit() {
 // ---------- Stats ----------
 async function updateStats() {
   try {
-    const r = await fetch(`${API_URL}/admin/stats`);
+    const r = await fetch(`${API_URL}/stats`);
+    if (!r.ok) return;
     const stats = await r.json();
     const containers = document.querySelectorAll(".stat strong");
     if (containers.length >= 2) {
-      containers[0].textContent = `${stats.totalPlaces}+`;
-      containers[1].textContent = stats.totalSpots;
+      containers[0].textContent = `${Number(stats.totalPlaces || 0)}+`;
+      containers[1].textContent = Number(stats.totalSpots || 0);
     }
   } catch (e) {}
 }

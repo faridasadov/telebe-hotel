@@ -88,11 +88,19 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     qs("#tabPlaces").style.display = tab === "places" ? "block" : "none";
     qs("#tabBookings").style.display = tab === "bookings" ? "block" : "none";
     qs("#tabProviders").style.display = tab === "providers" ? "block" : "none";
+    qs("#tabStudents").style.display = tab === "students" ? "block" : "none";
     qs("#tabProviderListings").style.display = tab === "providerListings" ? "block" : "none";
+    qs("#tabVerification").style.display = tab === "verification" ? "block" : "none";
+    qs("#tabReports").style.display = tab === "reports" ? "block" : "none";
+    qs("#tabAudit").style.display = tab === "audit" ? "block" : "none";
     if (tab === "places") fetchPlaces();
     if (tab === "bookings") fetchBookings();
     if (tab === "providers") fetchProviders();
+    if (tab === "students") fetchStudents();
     if (tab === "providerListings") fetchProviderListings();
+    if (tab === "verification") fetchVerificationQueue();
+    if (tab === "reports") fetchReports();
+    if (tab === "audit") fetchAuditLogs();
   });
 });
 
@@ -150,7 +158,9 @@ async function fetchBookings() {
       <td>
         <strong>${escHtml(b.full_name)}</strong><br>
         <small>${escHtml(b.phone)} | ${escHtml(b.email)}</small>
+        <span class="muted-small">Tracking: ${escHtml(b.tracking_code || "-")}</span>
         ${b.note ? `<span class="muted-small">${escHtml(b.note)}</span>` : ""}
+        ${b.admin_note ? `<span class="muted-small">Admin: ${escHtml(b.admin_note)}</span>` : ""}
       </td>
       <td>${escHtml(b.place_name || "Seçilməyib")}</td>
       <td>${b.gender === "female" ? "Qız" : "Oğlan"}</td>
@@ -194,6 +204,57 @@ async function fetchProviders() {
       </td>
     </tr>
   `).join("");
+}
+
+async function fetchStudents() {
+  const response = await authFetch(`${API_URL}/admin/students`);
+  if (!response.ok) throw new Error("Tələbələr yüklənmədi");
+  const data = await response.json();
+  qs("#studentsTableBody").innerHTML = data.map((s) => `
+    <tr>
+      <td>${new Date(s.created_at).toLocaleDateString()}</td>
+      <td>
+        <strong>${escHtml(s.full_name)}</strong><br>
+        <small>${escHtml(s.phone || "")} · ${escHtml(s.email)}</small>
+        ${s.admin_note ? `<span class="muted-small">${escHtml(s.admin_note)}</span>` : ""}
+      </td>
+      <td>${escHtml(s.university || "")}</td>
+      <td><span class="status ${statusClass(s.status)}">${escHtml(s.status)}</span></td>
+      <td>
+        <div class="booking-actions">
+          <button class="btn btn-sm" onclick="setStudentStatus(${s.id}, 'Approved')" ${s.status === "Approved" ? "disabled" : ""}>Təsdiq</button>
+          <button class="btn btn-sm" onclick="setStudentStatus(${s.id}, 'Pending')" ${s.status === "Pending" ? "disabled" : ""}>Gözlət</button>
+          <button class="btn btn-danger btn-sm" onclick="setStudentStatus(${s.id}, 'Rejected')" ${s.status === "Rejected" ? "disabled" : ""}>İmtina</button>
+          ${s.document_name ? `<button class="btn btn-sm" onclick="openStudentDocument(${s.id})">Sənəd</button>` : ""}
+        </div>
+      </td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Tələbə qeydiyyatı yoxdur.</td></tr>`;
+}
+
+async function setStudentStatus(id, status) {
+  const note = status !== "Approved" ? prompt("Qeyd") || "" : "";
+  const response = await authFetch(`${API_URL}/admin/students/${id}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, note }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    alert(data.error || "Tələbə statusu dəyişmədi");
+    return;
+  }
+  fetchStudents();
+}
+
+async function openStudentDocument(id) {
+  const response = await authFetch(`${API_URL}/admin/students/${id}/document`);
+  const doc = await response.json();
+  if (!response.ok) {
+    alert(doc.error || "Sənəd tapılmadı");
+    return;
+  }
+  openBase64Document(doc);
 }
 
 async function setProviderStatus(id, status) {
@@ -245,6 +306,100 @@ async function fetchProviderListings() {
       </td>
     </tr>
   `).join("");
+}
+
+async function fetchVerificationQueue() {
+  const response = await authFetch(`${API_URL}/admin/verification-queue`);
+  if (!response.ok) throw new Error("Verification queue yüklənmədi");
+  const data = await response.json();
+  qs("#verifyProviderCount").textContent = data.providers.length;
+  qs("#verifyStudentCount").textContent = data.students.length;
+  qs("#verifyListingCount").textContent = data.listings.length;
+  const providerRows = data.providers.map((p) => `
+    <tr>
+      <td>Sahib</td>
+      <td><strong>${escHtml(p.full_name)}</strong><br><small>${escHtml(p.email)} · ${escHtml(p.phone)}</small></td>
+      <td>${new Date(p.created_at).toLocaleDateString()}</td>
+      <td class="booking-actions">
+        <button class="btn btn-sm" onclick="setProviderStatus(${p.id}, 'Approved')">Təsdiq</button>
+        <button class="btn btn-danger btn-sm" onclick="setProviderStatus(${p.id}, 'Rejected')">İmtina</button>
+        <button class="btn btn-sm" onclick="openProviderDocument(${p.id})">Sənəd</button>
+      </td>
+    </tr>
+  `);
+  const studentRows = data.students.map((s) => `
+    <tr>
+      <td>Tələbə</td>
+      <td><strong>${escHtml(s.full_name)}</strong><br><small>${escHtml(s.email)} · ${escHtml(s.university || "")}</small></td>
+      <td>${new Date(s.created_at).toLocaleDateString()}</td>
+      <td class="booking-actions">
+        <button class="btn btn-sm" onclick="setStudentStatus(${s.id}, 'Approved')">Təsdiq</button>
+        <button class="btn btn-danger btn-sm" onclick="setStudentStatus(${s.id}, 'Rejected')">İmtina</button>
+        <button class="btn btn-sm" onclick="openStudentDocument(${s.id})">Sənəd</button>
+      </td>
+    </tr>
+  `);
+  const listingRows = data.listings.map((l) => `
+    <tr>
+      <td>Elan</td>
+      <td><strong>${escHtml(l.name)}</strong><br><small>${escHtml(l.provider_name)} · ${escHtml(l.price)} AZN</small></td>
+      <td>${new Date(l.created_at).toLocaleDateString()}</td>
+      <td class="booking-actions">
+        <button class="btn btn-sm" onclick="setProviderListingStatus(${l.id}, 'Approved')">Yayımla</button>
+        <button class="btn btn-danger btn-sm" onclick="setProviderListingStatus(${l.id}, 'Rejected')">İmtina</button>
+      </td>
+    </tr>
+  `);
+  qs("#verificationTableBody").innerHTML = providerRows.concat(studentRows, listingRows).join("") || `<tr><td colspan="4">Gözləyən yoxlama yoxdur.</td></tr>`;
+}
+
+async function fetchReports() {
+  const response = await authFetch(`${API_URL}/admin/reports`);
+  if (!response.ok) throw new Error("Reportlar yüklənmədi");
+  const reports = await response.json();
+  qs("#reportsTableBody").innerHTML = reports.map((r) => `
+    <tr>
+      <td>${new Date(r.created_at).toLocaleDateString()}</td>
+      <td>${escHtml(r.place_name || "Silinmiş elan")}<br><small>ID: ${escHtml(r.place_id)}</small></td>
+      <td><strong>${escHtml(r.reason)}</strong><br><small>${escHtml(r.reporter_name || "")} ${escHtml(r.reporter_contact || "")}</small></td>
+      <td><span class="status ${statusClass(r.status)}">${escHtml(r.status)}</span></td>
+      <td class="booking-actions">
+        <button class="btn btn-sm" onclick="setReportStatus(${r.id}, 'Reviewed')">Baxıldı</button>
+        <button class="btn btn-sm" onclick="setReportStatus(${r.id}, 'Resolved')">Həll edildi</button>
+        <button class="btn btn-danger btn-sm" onclick="setReportStatus(${r.id}, 'Rejected')">Rədd et</button>
+      </td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Report yoxdur.</td></tr>`;
+}
+
+async function setReportStatus(id, status) {
+  const note = prompt("Qeyd") || "";
+  const response = await authFetch(`${API_URL}/admin/reports/${id}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, note }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    alert(data.error || "Report statusu dəyişmədi");
+    return;
+  }
+  fetchReports();
+}
+
+async function fetchAuditLogs() {
+  const response = await authFetch(`${API_URL}/admin/audit-logs`);
+  if (!response.ok) throw new Error("Audit log yüklənmədi");
+  const logs = await response.json();
+  qs("#auditTableBody").innerHTML = logs.map((log) => `
+    <tr>
+      <td>${new Date(log.created_at).toLocaleString()}</td>
+      <td>${escHtml(log.actor)}</td>
+      <td>${escHtml(log.action)}</td>
+      <td>${escHtml(log.entity_type)} #${escHtml(log.entity_id || "")}</td>
+      <td><small>${escHtml(log.details || "")}</small></td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Audit qeydi yoxdur.</td></tr>`;
 }
 
 async function setProviderListingStatus(id, status) {
@@ -433,4 +588,7 @@ window.openDocument = openDocument;
 window.deleteBooking = deleteBooking;
 window.setProviderStatus = setProviderStatus;
 window.openProviderDocument = openProviderDocument;
+window.setStudentStatus = setStudentStatus;
+window.openStudentDocument = openStudentDocument;
 window.setProviderListingStatus = setProviderListingStatus;
+window.setReportStatus = setReportStatus;

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/styles.css?v=20260515-owner-login" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260520-owner-room" />
     <style>
       body { min-height: 100vh; }
       .owner-shell { padding: 48px 20px; }
@@ -99,7 +99,8 @@
             <label class="field"><span>Latitude</span><input name="lat" type="number" step="0.000001"></label>
             <label class="field"><span>Longitude</span><input name="lng" type="number" step="0.000001"></label>
             <label class="field wide"><span>Ünvan</span><input name="address" required></label>
-            <label class="field wide"><span>Şəkil URL-ləri (hər sətirdə bir URL)</span><textarea name="images" rows="3"></textarea></label>
+            <label class="field wide"><span>Şəkillər yüklə (minimum 3)</span><input name="imageFiles" type="file" accept=".jpg,.jpeg,.png,.webp" multiple></label>
+            <label class="field wide"><span>Əlavə şəkil URL-ləri (istəyə görə)</span><textarea name="images" rows="3"></textarea></label>
             <label class="field wide"><span>Təsvir</span><textarea name="description" rows="3"></textarea></label>
             <label class="field wide"><span>İmkanlar (wifi, kitchen, laundry...)</span><textarea name="amenities" rows="2"></textarea></label>
             <label class="field wide"><span>Universitetlər (CODE | Ad | dəqiqə)</span><textarea name="universities" rows="3"></textarea></label>
@@ -111,10 +112,14 @@
 
           <h2>Göndərilən elanlar</h2>
           <div id="ownerListings" class="owner-list"></div>
+
+          <h2>Yayımlanmış otaqlar</h2>
+          <p class="meta">Doluluq, qiymət və otaq məlumatı dəyişəndə sorğu admin təsdiqinə gedir.</p>
+          <div id="ownerPlaces" class="owner-list"></div>
         </section>
       </div>
     </main>
 
-    <script src="assets/owner.js?v=20260515-owner-login"></script>
+    <script src="assets/owner.js?v=20260520-owner-room"></script>
   </body>
 </html>

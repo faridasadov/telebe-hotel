@@ -331,8 +331,8 @@ button, input, select, textarea {
 
 .header-inner {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--sp-5);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--sp-4);
   align-items: center;
   height: var(--header-h);
 }
@@ -364,46 +364,56 @@ button, input, select, textarea {
 
 .nav {
   display: flex;
-  gap: var(--sp-5);
+  gap: 8px;
   justify-content: center;
+  align-items: center;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav a {
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: var(--fs-sm);
-  position: relative;
-  padding: 6px 0;
-  transition: color 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  color: var(--text);
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--bg-subtle) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.48);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.nav a:hover { color: var(--brand); }
-
-.nav a::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--brand), var(--accent));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.2s ease;
+.nav a:hover {
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand-soft) 54%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 18%, transparent);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
-
-.nav a:hover::after { transform: scaleX(1); }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
+  flex-shrink: 0;
 }
 
 .lang-switcher {
   height: 42px;
-  padding: 0 14px;
+  width: 88px;
+  padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bg-card);
@@ -518,7 +528,7 @@ button, input, select, textarea {
   letter-spacing: 0.04em;
 }
 
-input[type="text"], input[type="email"], input[type="tel"],
+input:not([type]), input[type="text"], input[type="email"], input[type="tel"], input[type="password"],
 input[type="date"], input[type="number"], input[type="file"],
 select, textarea {
   width: 100%;
@@ -1238,6 +1248,11 @@ input[type="range"]::-webkit-slider-thumb {
    Responsive
    ========================================== */
 @media (max-width: 1200px) {
+  .header-inner { gap: var(--sp-3); }
+  .logo-text { font-size: var(--fs-base); }
+  .nav a { padding-inline: 10px; font-size: 12px; }
+  .header-actions { gap: 8px; }
+  .lang-switcher { width: 82px; }
   .catalog {
     grid-template-columns: 260px minmax(0, 1fr);
   }

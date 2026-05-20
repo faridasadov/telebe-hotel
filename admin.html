@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>StudentStay Admin Panel</title>
-    <link rel="stylesheet" href="assets/styles.css?v=20260514-visual-login" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260520-cabinets" />
     <style>
       body { min-height: 100vh; }
       .admin-container { padding: 48px 20px; max-width: 1280px; margin: 0 auto; animation: fadeUp 0.42s ease both; }
@@ -76,7 +76,11 @@
         <div class="tab-btn active" data-tab="places">Obyektlər</div>
         <div class="tab-btn" data-tab="bookings">Müraciətlər</div>
         <div class="tab-btn" data-tab="providers">Ev sahibləri</div>
+        <div class="tab-btn" data-tab="students">Tələbələr</div>
         <div class="tab-btn" data-tab="providerListings">Sahib elanları</div>
+        <div class="tab-btn" data-tab="verification">Verification</div>
+        <div class="tab-btn" data-tab="reports">Reportlar</div>
+        <div class="tab-btn" data-tab="audit">Audit</div>
       </div>
 
       <div id="tabPlaces">
@@ -133,6 +137,22 @@
         </table>
       </div>
 
+      <div id="tabStudents" style="display: none">
+        <h2>Tələbə qeydiyyatları</h2>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Tarix</th>
+              <th>Tələbə</th>
+              <th>Universitet</th>
+              <th>Status</th>
+              <th>Əməliyyatlar</th>
+            </tr>
+          </thead>
+          <tbody id="studentsTableBody"></tbody>
+        </table>
+      </div>
+
       <div id="tabProviderListings" style="display: none">
         <h2>Sahiblərdən gələn elanlar</h2>
         <table class="admin-table">
@@ -146,6 +166,35 @@
             </tr>
           </thead>
           <tbody id="providerListingsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="tabVerification" style="display: none">
+        <h2>Verification queue</h2>
+        <div class="dashboard-cards">
+          <div class="d-card"><h3>Gözləyən sahiblər</h3><strong id="verifyProviderCount">-</strong></div>
+          <div class="d-card"><h3>Gözləyən tələbələr</h3><strong id="verifyStudentCount">-</strong></div>
+          <div class="d-card"><h3>Gözləyən elanlar</h3><strong id="verifyListingCount">-</strong></div>
+        </div>
+        <table class="admin-table">
+          <thead><tr><th>Tip</th><th>Məlumat</th><th>Tarix</th><th>Əməliyyat</th></tr></thead>
+          <tbody id="verificationTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="tabReports" style="display: none">
+        <h2>Saxta elan reportları</h2>
+        <table class="admin-table">
+          <thead><tr><th>Tarix</th><th>Elan</th><th>Report</th><th>Status</th><th>Əməliyyat</th></tr></thead>
+          <tbody id="reportsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="tabAudit" style="display: none">
+        <h2>Audit log</h2>
+        <table class="admin-table">
+          <thead><tr><th>Tarix</th><th>Actor</th><th>Action</th><th>Entity</th><th>Detal</th></tr></thead>
+          <tbody id="auditTableBody"></tbody>
         </table>
       </div>
     </div>
@@ -214,6 +263,6 @@
       </div>
     </div>
 
-    <script src="assets/admin-panel.js?v=20260520-cache-bust"></script>
+    <script src="assets/admin-panel.js?v=20260520-cabinets"></script>
   </body>
 </html>
