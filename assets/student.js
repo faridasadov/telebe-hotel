@@ -52,6 +52,11 @@ function showPanel(student) {
   qs("#studentName").textContent = `${student.full_name || ""} · ${student.email || ""}`;
   qs("#studentStatus").textContent = student.status || "Pending";
   qs("#studentAdminNote").textContent = student.admin_note ? `Admin qeydi: ${student.admin_note}` : "";
+  if (qs("#studentProfileForm")) {
+    qs("#studentProfileForm").elements.fullName.value = student.full_name || "";
+    qs("#studentProfileForm").elements.phone.value = student.phone || "";
+    qs("#studentProfileForm").elements.university.value = student.university || "";
+  }
   document.querySelectorAll("[data-account-step]").forEach((step) => {
     step.classList.toggle("active", step.dataset.accountStep === student.status);
   });
@@ -72,6 +77,11 @@ async function loadBookings() {
       <p class="meta">Tracking ID: <b>${escHtml(b.tracking_code || "-")}</b> · ${escHtml(b.move_in || "")} · ${escHtml(b.duration || "")} ay</p>
       <div class="status-steps">${bookingSteps(b.status)}</div>
       ${b.admin_note ? `<p class="meta">Admin cavabı: ${escHtml(b.admin_note)}</p>` : ""}
+      <div class="booking-actions">
+        <button class="btn btn-sm" type="button" data-load-messages="${escHtml(b.id)}">Mesajlar</button>
+        ${b.status === "Pending" || b.status === "Rejected" ? `<button class="btn btn-danger btn-sm" type="button" data-cancel-booking="${escHtml(b.id)}">Ləğv et</button>` : ""}
+      </div>
+      <div class="student-hidden" data-message-box="${escHtml(b.id)}"></div>
     </article>
   `).join("") : `<p class="meta">Hələ rezervasiya müraciətiniz yoxdur.</p>`;
 }
@@ -136,6 +146,94 @@ qs("#studentLoginForm")?.addEventListener("submit", async (e) => {
 qs("#studentLogout")?.addEventListener("click", () => {
   studentFetch(`${API_URL}/students/logout`, { method: "POST" }).catch(() => {});
   showAuth();
+});
+
+qs("#studentProfileForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const note = qs("#studentProfileNote");
+  const data = Object.fromEntries(new FormData(e.currentTarget).entries());
+  try {
+    const response = await studentFetch(`${API_URL}/students/profile`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Profil yenilənmədi");
+    setNote(note, "Profil yeniləndi.", true);
+    await loadStudentPanel();
+  } catch (err) {
+    setNote(note, err.message);
+  }
+});
+
+qs("#studentDocumentForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const note = qs("#studentDocumentNote");
+  const fd = new FormData(e.currentTarget);
+  try {
+    const response = await studentFetch(`${API_URL}/students/document`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ document: await fileToPayload(fd.get("document")) }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Sənəd yenilənmədi");
+    e.currentTarget.reset();
+    setNote(note, "Sənəd yeniləndi və yoxlamaya göndərildi.", true);
+    await loadStudentPanel();
+  } catch (err) {
+    setNote(note, err.message);
+  }
+});
+
+async function renderMessages(bookingId) {
+  const box = document.querySelector(`[data-message-box="${bookingId}"]`);
+  if (!box) return;
+  const response = await studentFetch(`${API_URL}/students/bookings/${bookingId}/messages`);
+  const messages = await response.json();
+  box.classList.remove("student-hidden");
+  box.innerHTML = `
+    <div class="message-list">
+      ${messages.map((m) => `<p class="meta"><b>${escHtml(m.sender_name || m.sender_type)}:</b> ${escHtml(m.message)}</p>`).join("") || `<p class="meta">Mesaj yoxdur.</p>`}
+    </div>
+    <form class="student-form" data-student-message="${escHtml(bookingId)}">
+      <label class="field wide"><span>Mesaj</span><textarea name="message" rows="2" required></textarea></label>
+      <button class="btn btn-sm wide" type="submit">Göndər</button>
+    </form>
+  `;
+}
+
+document.addEventListener("click", async (e) => {
+  const loadBtn = e.target.closest("[data-load-messages]");
+  if (loadBtn) {
+    await renderMessages(loadBtn.dataset.loadMessages);
+    return;
+  }
+  const cancelBtn = e.target.closest("[data-cancel-booking]");
+  if (cancelBtn) {
+    if (!confirm("Rezervasiyanı ləğv etmək istəyirsiniz?")) return;
+    const response = await studentFetch(`${API_URL}/students/bookings/${cancelBtn.dataset.cancelBooking}/cancel`, { method: "PUT" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return alert(payload.error || "Ləğv edilmədi");
+    await loadBookings();
+  }
+});
+
+document.addEventListener("submit", async (e) => {
+  const form = e.target.closest("[data-student-message]");
+  if (!form) return;
+  e.preventDefault();
+  const bookingId = form.dataset.studentMessage;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const response = await studentFetch(`${API_URL}/students/bookings/${bookingId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return alert(payload.error || "Mesaj göndərilmədi");
+  await renderMessages(bookingId);
 });
 
 (async function initStudent() {

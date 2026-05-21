@@ -98,6 +98,18 @@ db.serialize(() => {
 
   db.run("ALTER TABLE students ADD COLUMN admin_note TEXT", () => {});
 
+  // ---- Admin users / roles ----
+  db.run(`CREATE TABLE IF NOT EXISTS admin_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    full_name TEXT,
+    role TEXT DEFAULT 'moderator',
+    password_hash TEXT NOT NULL,
+    active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   // ---- Property providers / owners ----
   db.run(`CREATE TABLE IF NOT EXISTS providers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -160,6 +172,16 @@ db.serialize(() => {
   db.run("ALTER TABLE provider_listings ADD COLUMN min_contract_months INTEGER DEFAULT 1", () => {});
 
   db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_tracking_code ON bookings(tracking_code)`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS conversation_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    booking_id INTEGER NOT NULL,
+    sender_type TEXT NOT NULL,
+    sender_name TEXT,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(booking_id) REFERENCES bookings(id)
+  )`);
 
   // ---- Moderation / audit ----
   db.run(`CREATE TABLE IF NOT EXISTS audit_logs (

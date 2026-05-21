@@ -181,7 +181,56 @@ async function loadOwnerPlaces() {
   `).join("") : `<p class="meta">Hələ yayımlanmış elanınız yoxdur.</p>`;
 }
 
+async function loadOwnerBookings() {
+  if (!qs("#ownerBookings")) return;
+  const response = await providerFetch(`${API_URL}/providers/bookings`);
+  const bookings = await response.json();
+  qs("#ownerBookings").innerHTML = bookings.length ? bookings.map((b) => `
+    <article class="owner-listing">
+      <strong>${escHtml(b.place_name || "Obyekt")}</strong>
+      <span class="owner-status ${escHtml(b.status)}">${escHtml(b.status)}</span>
+      <p class="meta">${escHtml(b.full_name)} · ${escHtml(b.phone || "")} · ${escHtml(b.email || "")}</p>
+      <p class="meta">${escHtml(b.university || "")} · ${escHtml(b.move_in || "")} · ${escHtml(b.duration || "")} ay · Tracking: ${escHtml(b.tracking_code || "-")}</p>
+      ${b.note ? `<p class="meta">${escHtml(b.note)}</p>` : ""}
+      <button class="btn btn-sm" type="button" data-owner-messages="${escHtml(b.id)}">Mesajlar / cavab yaz</button>
+      <div class="admin-hidden" data-owner-message-box="${escHtml(b.id)}"></div>
+    </article>
+  `).join("") : `<p class="meta">Hələ rezervasiya yoxdur.</p>`;
+}
+
+async function renderOwnerMessages(bookingId) {
+  const box = document.querySelector(`[data-owner-message-box="${bookingId}"]`);
+  if (!box) return;
+  const response = await providerFetch(`${API_URL}/providers/bookings/${bookingId}/messages`);
+  const messages = await response.json();
+  box.classList.remove("admin-hidden");
+  box.innerHTML = `
+    <div class="message-list">
+      ${messages.map((m) => `<p class="meta"><b>${escHtml(m.sender_name || m.sender_type)}:</b> ${escHtml(m.message)}</p>`).join("") || `<p class="meta">Mesaj yoxdur.</p>`}
+    </div>
+    <form class="owner-form" data-owner-message="${escHtml(bookingId)}">
+      <label class="field wide"><span>Cavab</span><textarea name="message" rows="2" required></textarea></label>
+      <button class="btn btn-primary wide" type="submit">Cavab göndər</button>
+    </form>
+  `;
+}
+
 document.addEventListener("submit", async (e) => {
+  const messageForm = e.target.closest("[data-owner-message]");
+  if (messageForm) {
+    e.preventDefault();
+    const bookingId = messageForm.dataset.ownerMessage;
+    const data = Object.fromEntries(new FormData(messageForm).entries());
+    const response = await providerFetch(`${API_URL}/providers/bookings/${bookingId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return alert(payload.error || "Cavab göndərilmədi");
+    await renderOwnerMessages(bookingId);
+    return;
+  }
   const form = e.target.closest("[data-place-update]");
   if (!form) return;
   e.preventDefault();
@@ -202,6 +251,12 @@ document.addEventListener("submit", async (e) => {
   }
 });
 
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-owner-messages]");
+  if (!btn) return;
+  await renderOwnerMessages(btn.dataset.ownerMessages);
+});
+
 async function loadProviderPanel() {
   if (!qs("#ownerPanel")) return;
   const response = await providerFetch(`${API_URL}/providers/session`);
@@ -209,6 +264,7 @@ async function loadProviderPanel() {
   showPanel(data.provider);
   await loadListings();
   await loadOwnerPlaces();
+  await loadOwnerBookings();
 }
 
 (async function initOwner() {

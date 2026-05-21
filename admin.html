@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>StudentStay Admin Panel</title>
-    <link rel="stylesheet" href="assets/styles.css?v=20260520-cabinets" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
     <style>
       body { min-height: 100vh; }
       .admin-container { padding: 48px 20px; max-width: 1280px; margin: 0 auto; animation: fadeUp 0.42s ease both; }
@@ -81,6 +81,7 @@
         <div class="tab-btn" data-tab="verification">Verification</div>
         <div class="tab-btn" data-tab="reports">Reportlar</div>
         <div class="tab-btn" data-tab="audit">Audit</div>
+        <div class="tab-btn" data-tab="adminUsers">Adminlər</div>
       </div>
 
       <div id="tabPlaces">
@@ -197,6 +198,28 @@
           <tbody id="auditTableBody"></tbody>
         </table>
       </div>
+
+      <div id="tabAdminUsers" style="display: none">
+        <h2>Admin rolları</h2>
+        <form id="adminUserForm" class="form-grid">
+          <label class="field"><span>Username</span><input name="username" required></label>
+          <label class="field"><span>Ad</span><input name="fullName"></label>
+          <label class="field"><span>Rol</span>
+            <select name="role">
+              <option value="moderator">Moderator</option>
+              <option value="support">Support</option>
+              <option value="superadmin">Superadmin</option>
+            </select>
+          </label>
+          <label class="field"><span>Parol</span><input name="password" type="password" minlength="8" required></label>
+          <button class="btn btn-primary full-width" type="submit">Admin yarat</button>
+          <p class="login-error full-width" id="adminUserNote"></p>
+        </form>
+        <table class="admin-table">
+          <thead><tr><th>Username</th><th>Ad</th><th>Rol</th><th>Status</th><th>Əməliyyat</th></tr></thead>
+          <tbody id="adminUsersTableBody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Edit/Add Modal -->
@@ -263,6 +286,6 @@
       </div>
     </div>
 
-    <script src="assets/admin-panel.js?v=20260520-cabinets"></script>
+    <script src="assets/admin-panel.js?v=20260521-final"></script>
   </body>
 </html>

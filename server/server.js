@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { execFile } = require('child_process');
 const bodyParser = require('body-parser');
+const nodemailer = require('nodemailer');
 const db = require('./database');
 
 const app = express();
@@ -13,6 +14,11 @@ const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || 'scrypt:studentstayadmin2026:e2317b3a2defe0838e88b596d759eb64788da1dce757d46b4f282dbadada0a8812a7120b68a9f3560b91288c906d32b8c1145c54a486c9bddf7ef3cdc5498209';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || crypto.randomBytes(32).toString('hex');
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || '';
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@studentstay.az';
 const COOKIE_NAME = 'studentstay_admin';
 const PROVIDER_COOKIE_NAME = 'studentstay_provider';
 const STUDENT_COOKIE_NAME = 'studentstay_student';
@@ -25,6 +31,12 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
 const loginAttempts = new Map();
 const adminSessions = new Map();
+const smtpTransport = SMTP_HOST ? nodemailer.createTransport({
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: SMTP_PORT === 465,
+  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+}) : null;
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(LISTING_UPLOAD_DIR, { recursive: true });
@@ -56,9 +68,9 @@ function parseCookies(req) {
   }, {});
 }
 
-function createAdminSession() {
+function createAdminSession(user, role = 'superadmin') {
   const token = crypto.randomBytes(32).toString('hex');
-  adminSessions.set(token, { user: ADMIN_USER, expiresAt: Date.now() + ADMIN_SESSION_MS });
+  adminSessions.set(token, { user: user || ADMIN_USER, role, expiresAt: Date.now() + ADMIN_SESSION_MS });
   return token;
 }
 
@@ -93,11 +105,16 @@ function requireAdmin(req, res, next) {
   const session = token ? adminSessions.get(token) : null;
   if (session && session.expiresAt > Date.now()) {
     session.expiresAt = Date.now() + ADMIN_SESSION_MS;
-    req.admin = { user: session.user, token };
+    req.admin = { user: session.user, role: session.role || 'moderator', token };
     return next();
   }
   if (token) adminSessions.delete(token);
   return res.status(401).json({ error: 'Unauthorized' });
+}
+
+function requireSuperAdmin(req, res, next) {
+  if (!req.admin || req.admin.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin icazəsi lazımdır' });
+  next();
 }
 
 function requireProvider(req, res, next) {
@@ -226,6 +243,12 @@ function logAudit(actor, action, entityType, entityId, details) {
 
 function sendMail(to, subject, message) {
   console.log(`${subject} | ${message.replace(/\n/g, ' | ')}`);
+  if (smtpTransport && to) {
+    smtpTransport.sendMail({ from: SMTP_FROM, to, subject, text: message }).catch((err) => {
+      console.error('SMTP mail failed:', err.message);
+    });
+    return;
+  }
   if (!to || !fs.existsSync('/usr/sbin/sendmail')) return;
   const body = `To: ${to}\nSubject: ${subject}\n\n${message}`;
   const child = execFile('/usr/sbin/sendmail', ['-t'], () => {});
@@ -357,20 +380,36 @@ function expandPlace(row) {
 app.post('/api/admin/login', (req, res) => {
   if (isLoginLimited(req)) return res.status(429).json({ error: 'Çox cəhd edildi. Bir az sonra yenidən yoxlayın.' });
   const { username, password } = req.body || {};
-  if (username !== ADMIN_USER) {
-    recordLoginFailure(req);
-    return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
-  }
-  verifyPassword(password, ADMIN_PASSWORD_HASH, (ok) => {
-    if (!ok) {
+  const normalizedUsername = String(username || '').trim();
+  const finishLogin = (user, role) => {
+    clearLoginFailures(req);
+    const token = createAdminSession(user, role);
+    setAdminCookie(res, token);
+    logAudit(user, 'admin_login', 'admin', null, { ip: getRateKey(req), role });
+    res.json({ user, role, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+  };
+  db.get("SELECT * FROM admin_users WHERE username = ? AND active = 1", [normalizedUsername], (err, adminUser) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (adminUser) {
+      return verifyPassword(password, adminUser.password_hash, (ok) => {
+        if (!ok) {
+          recordLoginFailure(req);
+          return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
+        }
+        finishLogin(adminUser.username, adminUser.role || 'moderator');
+      });
+    }
+    if (normalizedUsername !== ADMIN_USER) {
       recordLoginFailure(req);
       return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
     }
-    clearLoginFailures(req);
-    const token = createAdminSession();
-    setAdminCookie(res, token);
-    logAudit(ADMIN_USER, 'admin_login', 'admin', null, { ip: getRateKey(req) });
-    res.json({ user: ADMIN_USER, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+    verifyPassword(password, ADMIN_PASSWORD_HASH, (ok) => {
+      if (!ok) {
+        recordLoginFailure(req);
+        return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
+      }
+      finishLogin(ADMIN_USER, 'superadmin');
+    });
   });
 });
 
@@ -382,7 +421,45 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/session', requireAdmin, (req, res) => {
-  res.json({ user: ADMIN_USER, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+  res.json({ user: req.admin.user, role: req.admin.role, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+});
+
+app.get('/api/admin/users', requireAdmin, requireSuperAdmin, (req, res) => {
+  db.all("SELECT id, username, full_name, role, active, created_at, updated_at FROM admin_users ORDER BY created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/admin/users', requireAdmin, requireSuperAdmin, (req, res) => {
+  const { username, fullName, role, password } = req.body || {};
+  if (!username || !password || String(password).length < 8) return res.status(400).json({ error: 'Username və minimum 8 simvolluq parol zəruridir' });
+  const safeRole = ['superadmin', 'moderator', 'support'].includes(role) ? role : 'moderator';
+  hashPassword(password, (hashErr, passwordHash) => {
+    if (hashErr) return res.status(500).json({ error: 'Şifrə hazırlanmadı' });
+    db.run(
+      "INSERT INTO admin_users (username, full_name, role, password_hash) VALUES (?, ?, ?, ?)",
+      [String(username).trim(), String(fullName || '').trim(), safeRole, passwordHash],
+      function (err) {
+        if (err) {
+          if (String(err.message).includes('UNIQUE')) return res.status(409).json({ error: 'Bu admin artıq var' });
+          return res.status(500).json({ error: err.message });
+        }
+        logAudit(req.admin.user, 'admin_user_created', 'admin_user', this.lastID, { username, role: safeRole });
+        res.json({ id: this.lastID });
+      }
+    );
+  });
+});
+
+app.put('/api/admin/users/:id', requireAdmin, requireSuperAdmin, (req, res) => {
+  const role = ['superadmin', 'moderator', 'support'].includes(req.body && req.body.role) ? req.body.role : 'moderator';
+  const active = req.body && req.body.active === false ? 0 : 1;
+  db.run("UPDATE admin_users SET role = ?, active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [role, active, req.params.id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    logAudit(req.admin.user, 'admin_user_updated', 'admin_user', req.params.id, { role, active });
+    res.json({ success: true });
+  });
 });
 
 // ---- Provider registration / login ----
@@ -522,6 +599,49 @@ app.get('/api/students/session', requireStudent, (req, res) => {
   res.json({ student: req.student });
 });
 
+app.put('/api/students/profile', requireStudent, (req, res) => {
+  const fullName = String((req.body && req.body.fullName) || '').trim();
+  const phone = String((req.body && req.body.phone) || '').trim();
+  const university = String((req.body && req.body.university) || '').trim();
+  if (!fullName || !university) return res.status(400).json({ error: 'Ad və universitet zəruridir' });
+  db.run(
+    "UPDATE students SET full_name = ?, phone = ?, university = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [fullName, phone, university, req.student.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.student.email, 'student_profile_updated', 'student', req.student.id, {});
+      res.json({ success: true });
+    }
+  );
+});
+
+app.post('/api/students/document', requireStudent, (req, res) => {
+  let doc = {};
+  try {
+    doc = saveDocument(req.body && req.body.document);
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({ error: err.message });
+  }
+  if (!doc.document_path) return res.status(400).json({ error: 'Sənəd zəruridir' });
+  db.get("SELECT document_path FROM students WHERE id = ?", [req.student.id], (selectErr, row) => {
+    if (selectErr) return res.status(500).json({ error: selectErr.message });
+    db.run(
+      "UPDATE students SET document_name = ?, document_type = ?, document_path = ?, status = 'Pending', admin_note = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [doc.document_name, doc.document_type, doc.document_path, req.student.id],
+      function (err) {
+        if (err) {
+          removeStoredDocument(doc.document_path);
+          return res.status(500).json({ error: err.message });
+        }
+        removeStoredDocument(row && row.document_path);
+        logAudit(req.student.email, 'student_document_updated', 'student', req.student.id, {});
+        notifyAdmin('StudentStay student document update', `Student updated document\nEmail: ${req.student.email}`);
+        res.json({ success: true, status: 'Pending' });
+      }
+    );
+  });
+});
+
 app.get('/api/students/bookings', requireStudent, (req, res) => {
   db.all(`SELECT b.id, b.tracking_code, b.full_name, b.email, b.university, b.faculty, b.gender,
           b.move_in, b.duration, b.status, b.note, b.admin_note, b.created_at, b.updated_at,
@@ -532,6 +652,47 @@ app.get('/api/students/bookings', requireStudent, (req, res) => {
           ORDER BY b.created_at DESC`, [req.student.email], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
+  });
+});
+
+app.put('/api/students/bookings/:id/cancel', requireStudent, (req, res) => {
+  db.get("SELECT * FROM bookings WHERE id = ? AND lower(email) = lower(?)", [req.params.id, req.student.email], (err, booking) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı' });
+    if (!['Pending', 'Rejected'].includes(booking.status)) return res.status(400).json({ error: 'Bu mərhələdə rezervasiyanı yalnız admin ləğv edə bilər' });
+    db.run("UPDATE bookings SET status = 'Cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [booking.id], function (updateErr) {
+      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      logAudit(req.student.email, 'booking_cancelled_by_student', 'booking', booking.id, {});
+      res.json({ success: true });
+    });
+  });
+});
+
+app.get('/api/students/bookings/:id/messages', requireStudent, (req, res) => {
+  db.get("SELECT id FROM bookings WHERE id = ? AND lower(email) = lower(?)", [req.params.id, req.student.email], (err, booking) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı' });
+    db.all("SELECT * FROM conversation_messages WHERE booking_id = ? ORDER BY created_at ASC", [booking.id], (msgErr, rows) => {
+      if (msgErr) return res.status(500).json({ error: msgErr.message });
+      res.json(rows || []);
+    });
+  });
+});
+
+app.post('/api/students/bookings/:id/messages', requireStudent, (req, res) => {
+  const message = String((req.body && req.body.message) || '').trim().slice(0, 1000);
+  if (message.length < 2) return res.status(400).json({ error: 'Mesaj boş ola bilməz' });
+  db.get("SELECT id FROM bookings WHERE id = ? AND lower(email) = lower(?)", [req.params.id, req.student.email], (err, booking) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı' });
+    db.run(
+      "INSERT INTO conversation_messages (booking_id, sender_type, sender_name, message) VALUES (?, 'student', ?, ?)",
+      [booking.id, req.student.full_name, message],
+      function (msgErr) {
+        if (msgErr) return res.status(500).json({ error: msgErr.message });
+        res.json({ id: this.lastID });
+      }
+    );
   });
 });
 
@@ -610,6 +771,54 @@ app.post('/api/providers/places/:id/update-request', requireProvider, (req, res)
         res.json({ id: requestId, status: 'Pending' });
       });
     });
+  });
+});
+
+app.get('/api/providers/bookings', requireProvider, (req, res) => {
+  db.all(`SELECT b.id, b.tracking_code, b.full_name, b.phone, b.email, b.university, b.faculty,
+          b.gender, b.move_in, b.duration, b.status, b.note, b.admin_note, b.created_at, b.updated_at,
+          p.name as place_name
+          FROM bookings b
+          JOIN places p ON p.id = b.place_id
+          WHERE p.provider_id = ?
+          ORDER BY b.created_at DESC`, [req.provider.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.get('/api/providers/bookings/:id/messages', requireProvider, (req, res) => {
+  db.get(`SELECT b.id
+          FROM bookings b
+          JOIN places p ON p.id = b.place_id
+          WHERE b.id = ? AND p.provider_id = ?`, [req.params.id, req.provider.id], (err, booking) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı' });
+    db.all("SELECT * FROM conversation_messages WHERE booking_id = ? ORDER BY created_at ASC", [booking.id], (msgErr, rows) => {
+      if (msgErr) return res.status(500).json({ error: msgErr.message });
+      res.json(rows || []);
+    });
+  });
+});
+
+app.post('/api/providers/bookings/:id/messages', requireProvider, (req, res) => {
+  const message = String((req.body && req.body.message) || '').trim().slice(0, 1000);
+  if (message.length < 2) return res.status(400).json({ error: 'Mesaj boş ola bilməz' });
+  db.get(`SELECT b.id, b.email, b.full_name, p.name as place_name
+          FROM bookings b
+          JOIN places p ON p.id = b.place_id
+          WHERE b.id = ? AND p.provider_id = ?`, [req.params.id, req.provider.id], (err, booking) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı' });
+    db.run(
+      "INSERT INTO conversation_messages (booking_id, sender_type, sender_name, message) VALUES (?, 'provider', ?, ?)",
+      [booking.id, req.provider.company_name || req.provider.full_name, message],
+      function (msgErr) {
+        if (msgErr) return res.status(500).json({ error: msgErr.message });
+        sendMail(booking.email, 'StudentStay ev sahibindən cavab', `${booking.place_name || 'Rezervasiya'} üzrə cavab:\n${message}`);
+        res.json({ id: this.lastID });
+      }
+    );
   });
 });
 

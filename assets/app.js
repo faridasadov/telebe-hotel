@@ -354,6 +354,20 @@ document.addEventListener("click", (e) => {
   }
 });
 
+document.querySelector("#mobileMenuBtn")?.addEventListener("click", () => {
+  const nav = document.querySelector("#mobileNav");
+  const btn = document.querySelector("#mobileMenuBtn");
+  const open = !nav.classList.contains("open");
+  nav.classList.toggle("open", open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+});
+
+document.querySelector("#mobileNav")?.addEventListener("click", (e) => {
+  if (!e.target.closest("a")) return;
+  document.querySelector("#mobileNav").classList.remove("open");
+  document.querySelector("#mobileMenuBtn")?.setAttribute("aria-expanded", "false");
+});
+
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeModal();
   if (e.key === "ArrowLeft") galleryStep(-1);

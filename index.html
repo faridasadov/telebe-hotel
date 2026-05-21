@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-    <link rel="stylesheet" href="assets/styles.css?v=20260520-cabinets" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   </head>
@@ -34,6 +34,10 @@
           <span class="logo-mark">S</span>
           <span class="logo-text">StudentStay</span>
         </a>
+
+        <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Menyu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
 
         <nav class="nav" aria-label="Main navigation">
           <a href="#places" data-i18n="nav.places">Yaşayış yerləri</a>
@@ -61,6 +65,14 @@
           <a class="btn btn-primary btn-sm" href="#booking" data-i18n="cta.start">Başla</a>
         </div>
       </div>
+      <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
+        <a href="#places" data-i18n="nav.places">Yaşayış yerləri</a>
+        <a href="#how" data-i18n="nav.how">Necə işləyir</a>
+        <a href="#features" data-i18n="nav.features">Üstünlüklər</a>
+        <a href="#booking" data-i18n="nav.booking">Rezervasiya</a>
+        <a href="#providers" data-i18n="nav.providers">Ev sahibləri</a>
+        <a href="student.html">Tələbə girişi</a>
+      </nav>
     </header>
 
     <main>
@@ -107,11 +119,11 @@
       <section class="stats">
         <div class="container stats-inner">
           <div class="stat">
-            <strong>42+</strong>
+            <strong>5+</strong>
             <span data-i18n="stats.properties">Yoxlanılmış obyekt</span>
           </div>
           <div class="stat">
-            <strong>318</strong>
+            <strong>76</strong>
             <span data-i18n="stats.beds">Yataq sayı</span>
           </div>
           <div class="stat">
@@ -519,8 +531,9 @@
 
         <div class="footer-col">
           <h4 data-i18n="footer.legal">Hüquqi</h4>
-          <a href="#" data-i18n="footer.terms">İstifadə şərtləri</a>
-          <a href="#" data-i18n="footer.privacy">Məxfilik siyasəti</a>
+          <a href="terms.html" data-i18n="footer.terms">İstifadə şərtləri</a>
+          <a href="privacy.html" data-i18n="footer.privacy">Məxfilik siyasəti</a>
+          <a href="refund.html">Geri ödəniş</a>
           <a href="owner-login.html" style="margin-top:10px; display:inline-block; font-size:12px; opacity:0.6">Ev sahibi girişi</a>
           <a href="admin.html" style="margin-top:10px; display:inline-block; font-size:12px; opacity:0.6">Admin Panel</a>
         </div>
@@ -560,6 +573,6 @@
     </div>
 
     <script src="assets/i18n.js"></script>
-    <script src="assets/app.js?v=20260520-cabinets"></script>
+    <script src="assets/app.js?v=20260521-final"></script>
   </body>
 </html>

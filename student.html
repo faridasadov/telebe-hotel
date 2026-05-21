@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/styles.css?v=20260520-student" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
     <style>
       body { min-height: 100vh; }
       .student-shell { padding: 48px 20px; }
@@ -86,11 +86,28 @@
             <div class="status-step" data-account-step="Rejected">Rejected</div>
           </div>
           <p class="meta" id="studentAdminNote"></p>
+
+          <form id="studentProfileForm" class="student-form">
+            <h2 class="wide">Profil</h2>
+            <label class="field wide"><span>Ad və soyad</span><input name="fullName" type="text" required></label>
+            <label class="field"><span>Telefon</span><input name="phone" type="tel"></label>
+            <label class="field"><span>Universitet</span><input name="university" type="text" required></label>
+            <button class="btn btn-primary wide" type="submit">Profili yenilə</button>
+            <p class="student-note wide" id="studentProfileNote"></p>
+          </form>
+
+          <form id="studentDocumentForm" class="student-form">
+            <h2 class="wide">Sənəd yenilə</h2>
+            <label class="field wide"><span>Yeni tələbə sənədi</span><input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+            <button class="btn wide" type="submit">Yenidən yoxlamaya göndər</button>
+            <p class="student-note wide" id="studentDocumentNote"></p>
+          </form>
+
           <div id="studentBookings"></div>
         </section>
       </div>
     </main>
 
-    <script src="assets/student.js?v=20260520-student"></script>
+    <script src="assets/student.js?v=20260521-final"></script>
   </body>
 </html>

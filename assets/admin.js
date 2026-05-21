@@ -93,6 +93,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     qs("#tabVerification").style.display = tab === "verification" ? "block" : "none";
     qs("#tabReports").style.display = tab === "reports" ? "block" : "none";
     qs("#tabAudit").style.display = tab === "audit" ? "block" : "none";
+    qs("#tabAdminUsers").style.display = tab === "adminUsers" ? "block" : "none";
     if (tab === "places") fetchPlaces();
     if (tab === "bookings") fetchBookings();
     if (tab === "providers") fetchProviders();
@@ -101,6 +102,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     if (tab === "verification") fetchVerificationQueue();
     if (tab === "reports") fetchReports();
     if (tab === "audit") fetchAuditLogs();
+    if (tab === "adminUsers") fetchAdminUsers();
   });
 });
 
@@ -144,7 +146,9 @@ async function deletePlace(id) {
 
 function statusClass(status) {
   if (status === "Approved") return "status-approved";
+  if (status === "Resolved" || status === "Reviewed") return "status-approved";
   if (status === "Rejected") return "status-rejected";
+  if (status === "Cancelled") return "status-rejected";
   return "status-pending";
 }
 
@@ -402,6 +406,62 @@ async function fetchAuditLogs() {
   `).join("") || `<tr><td colspan="5">Audit qeydi yoxdur.</td></tr>`;
 }
 
+async function fetchAdminUsers() {
+  const response = await authFetch(`${API_URL}/admin/users`);
+  const data = await response.json().catch(() => []);
+  if (!response.ok) {
+    qs("#adminUsersTableBody").innerHTML = `<tr><td colspan="5">Yalnız superadmin görə bilər.</td></tr>`;
+    return;
+  }
+  qs("#adminUsersTableBody").innerHTML = data.map((u) => `
+    <tr>
+      <td>${escHtml(u.username)}</td>
+      <td>${escHtml(u.full_name || "")}</td>
+      <td>${escHtml(u.role)}</td>
+      <td>${u.active ? "Aktiv" : "Deaktiv"}</td>
+      <td class="booking-actions">
+        <button class="btn btn-sm" onclick="setAdminUser(${u.id}, '${escHtml(u.role)}', ${u.active ? "false" : "true"})">${u.active ? "Deaktiv et" : "Aktiv et"}</button>
+      </td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Əlavə admin yoxdur.</td></tr>`;
+}
+
+qs("#adminUserForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const note = qs("#adminUserNote");
+  const data = Object.fromEntries(new FormData(e.currentTarget).entries());
+  try {
+    const response = await authFetch(`${API_URL}/admin/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Admin yaradılmadı");
+    e.currentTarget.reset();
+    note.textContent = "Admin yaradıldı.";
+    note.style.color = "var(--success)";
+    fetchAdminUsers();
+  } catch (err) {
+    note.textContent = err.message;
+    note.style.color = "var(--danger)";
+  }
+});
+
+async function setAdminUser(id, role, active) {
+  const response = await authFetch(`${API_URL}/admin/users/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, active }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    alert(data.error || "Admin yenilənmədi");
+    return;
+  }
+  fetchAdminUsers();
+}
+
 async function setProviderListingStatus(id, status) {
   const note = status === "Rejected" ? prompt("İmtina səbəbi") || "" : "";
   const response = await authFetch(`${API_URL}/admin/provider-listings/${id}/status`, {
@@ -592,3 +652,4 @@ window.setStudentStatus = setStudentStatus;
 window.openStudentDocument = openStudentDocument;
 window.setProviderListingStatus = setProviderListingStatus;
 window.setReportStatus = setReportStatus;
+window.setAdminUser = setAdminUser;
