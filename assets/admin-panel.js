@@ -530,25 +530,6 @@ async function deleteBooking(id) {
 const modal = qs("#adminModal");
 const placeForm = qs("#placeForm");
 
-qs("#addPlaceBtn")?.addEventListener("click", () => {
-  if (!placeForm || !modal) return;
-  placeForm.querySelectorAll("input, textarea, select").forEach((el) => {
-    if (el.type === "checkbox") el.checked = false;
-    else if (el.tagName === "SELECT") el.selectedIndex = 0;
-    else el.value = "";
-  });
-  field(placeForm, "id").value = "";
-  field(placeForm, "room_count").value = 1;
-  field(placeForm, "metro_distance_min").value = 0;
-  field(placeForm, "min_contract_months").value = 1;
-  field(placeForm, "female_occupied").value = 0;
-  field(placeForm, "female_free").value = 0;
-  field(placeForm, "male_occupied").value = 0;
-  field(placeForm, "male_free").value = 0;
-  qs("#modalTitle").textContent = "Yeni Obyekt Əlavə Et";
-  modal.classList.add("active");
-});
-
 document.querySelectorAll("[data-close]").forEach((el) => {
   el.addEventListener("click", () => modal.classList.remove("active"));
 });
@@ -607,8 +588,12 @@ placeForm?.addEventListener("submit", async (e) => {
   data.utilities = field(placeForm, "utilities").checked;
 
   const id = field(placeForm, "id").value;
-  const response = await authFetch(id ? `${API_URL}/admin/places/${id}` : `${API_URL}/admin/places`, {
-    method: id ? "PUT" : "POST",
+  if (!id) {
+    alert("Yeni obyekt ev sahibi kabinetindən göndərilməlidir.");
+    return;
+  }
+  const response = await authFetch(`${API_URL}/admin/places/${id}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });

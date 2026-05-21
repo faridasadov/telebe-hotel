@@ -12,6 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || 'scrypt:studentstayadmin2026:e2317b3a2defe0838e88b596d759eb64788da1dce757d46b4f282dbadada0a8812a7120b68a9f3560b91288c906d32b8c1145c54a486c9bddf7ef3cdc5498209';
+const SUPERADMIN_USER = process.env.SUPERADMIN_USER || 'farid';
+const SUPERADMIN_PASSWORD_HASH = process.env.SUPERADMIN_PASSWORD_HASH || ADMIN_PASSWORD_HASH;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || crypto.randomBytes(32).toString('hex');
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || '';
 const SMTP_HOST = process.env.SMTP_HOST || '';
@@ -20,6 +22,7 @@ const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@studentstay.az';
 const COOKIE_NAME = 'studentstay_admin';
+const SUPER_COOKIE_NAME = 'studentstay_superadmin';
 const PROVIDER_COOKIE_NAME = 'studentstay_provider';
 const STUDENT_COOKIE_NAME = 'studentstay_student';
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -31,6 +34,7 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
 const loginAttempts = new Map();
 const adminSessions = new Map();
+const superAdminSessions = new Map();
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(LISTING_UPLOAD_DIR, { recursive: true });
@@ -62,9 +66,15 @@ function parseCookies(req) {
   }, {});
 }
 
-function createAdminSession(user, role = 'superadmin') {
+function createAdminSession(user, role = 'moderator') {
   const token = crypto.randomBytes(32).toString('hex');
   adminSessions.set(token, { user: user || ADMIN_USER, role, expiresAt: Date.now() + ADMIN_SESSION_MS });
+  return token;
+}
+
+function createSuperAdminSession(user) {
+  const token = crypto.randomBytes(32).toString('hex');
+  superAdminSessions.set(token, { user: user || SUPERADMIN_USER, role: 'superadmin', expiresAt: Date.now() + ADMIN_SESSION_MS });
   return token;
 }
 
@@ -74,6 +84,14 @@ function setAdminCookie(res, token) {
 
 function clearAdminCookie(res) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
+}
+
+function setSuperAdminCookie(res, token) {
+  res.setHeader('Set-Cookie', `${SUPER_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(ADMIN_SESSION_MS / 1000)}`);
+}
+
+function clearSuperAdminCookie(res) {
+  res.setHeader('Set-Cookie', `${SUPER_COOKIE_NAME}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
 }
 
 function setProviderCookie(res, token) {
@@ -109,6 +127,20 @@ function requireAdmin(req, res, next) {
 function requireSuperAdmin(req, res, next) {
   if (!req.admin || req.admin.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin icazəsi lazımdır' });
   next();
+}
+
+function requireSuperAdminAuth(req, res, next) {
+  const header = req.get('authorization') || '';
+  const cookieToken = parseCookies(req)[SUPER_COOKIE_NAME] || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : cookieToken;
+  const session = token ? superAdminSessions.get(token) : null;
+  if (session && session.expiresAt > Date.now()) {
+    session.expiresAt = Date.now() + ADMIN_SESSION_MS;
+    req.superadmin = { user: session.user, role: 'superadmin', token };
+    return next();
+  }
+  if (token) superAdminSessions.delete(token);
+  return res.status(401).json({ error: 'Unauthorized' });
 }
 
 function requireProvider(req, res, next) {
@@ -442,6 +474,10 @@ app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body || {};
   const normalizedUsername = String(username || '').trim();
   const finishLogin = (user, role) => {
+    if (role === 'superadmin') {
+      recordLoginFailure(req);
+      return res.status(403).json({ error: 'Superadmin üçün ayrıca giriş səhifəsindən istifadə edin' });
+    }
     clearLoginFailures(req);
     const token = createAdminSession(user, role);
     setAdminCookie(res, token);
@@ -468,7 +504,52 @@ app.post('/api/admin/login', (req, res) => {
         recordLoginFailure(req);
         return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
       }
-      finishLogin(ADMIN_USER, 'superadmin');
+      finishLogin(ADMIN_USER, 'moderator');
+    });
+  });
+});
+
+app.post('/api/superadmin/login', (req, res) => {
+  if (isLoginLimited(req)) return res.status(429).json({ error: 'Çox cəhd edildi. Bir az sonra yenidən yoxlayın.' });
+  const { username, password } = req.body || {};
+  const normalizedUsername = String(username || '').trim();
+  const finishLogin = (user) => {
+    clearLoginFailures(req);
+    const token = createSuperAdminSession(user);
+    setSuperAdminCookie(res, token);
+    logAudit(user, 'superadmin_login', 'superadmin', null, { ip: getRateKey(req) });
+    res.json({ user, role: 'superadmin', expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+  };
+  db.get("SELECT * FROM admin_users WHERE username = ? AND role = 'superadmin' AND active = 1", [normalizedUsername], (err, adminUser) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (adminUser) {
+      return verifyPassword(password, adminUser.password_hash, (ok) => {
+        if (!ok && normalizedUsername === SUPERADMIN_USER) {
+          return verifyPassword(password, SUPERADMIN_PASSWORD_HASH, (fallbackOk) => {
+            if (!fallbackOk) {
+              recordLoginFailure(req);
+              return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
+            }
+            finishLogin(adminUser.username);
+          });
+        }
+        if (!ok) {
+          recordLoginFailure(req);
+          return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
+        }
+        finishLogin(adminUser.username);
+      });
+    }
+    if (normalizedUsername !== SUPERADMIN_USER) {
+      recordLoginFailure(req);
+      return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
+    }
+    verifyPassword(password, SUPERADMIN_PASSWORD_HASH, (ok) => {
+      if (!ok) {
+        recordLoginFailure(req);
+        return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
+      }
+      finishLogin(SUPERADMIN_USER);
     });
   });
 });
@@ -482,6 +563,17 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
 
 app.get('/api/admin/session', requireAdmin, (req, res) => {
   res.json({ user: req.admin.user, role: req.admin.role, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+});
+
+app.post('/api/superadmin/logout', requireSuperAdminAuth, (req, res) => {
+  if (req.superadmin && req.superadmin.token) superAdminSessions.delete(req.superadmin.token);
+  logAudit(req.superadmin && req.superadmin.user, 'superadmin_logout', 'superadmin', null, {});
+  clearSuperAdminCookie(res);
+  res.json({ success: true });
+});
+
+app.get('/api/superadmin/session', requireSuperAdminAuth, (req, res) => {
+  res.json({ user: req.superadmin.user, role: 'superadmin', expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
 });
 
 app.get('/api/admin/users', requireAdmin, requireSuperAdmin, (req, res) => {
@@ -560,6 +652,128 @@ app.put('/api/admin/settings', requireAdmin, requireSuperAdmin, (req, res) => {
       res.json({ success: true });
     });
   });
+});
+
+app.get('/api/superadmin/users', requireSuperAdminAuth, (req, res) => {
+  db.all("SELECT id, username, full_name, role, active, created_at, updated_at FROM admin_users ORDER BY created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/superadmin/users', requireSuperAdminAuth, (req, res) => {
+  const { username, fullName, role, password } = req.body || {};
+  if (!username || !password || String(password).length < 8) return res.status(400).json({ error: 'Username və minimum 8 simvolluq parol zəruridir' });
+  const safeRole = ['superadmin', 'moderator', 'support'].includes(role) ? role : 'moderator';
+  hashPassword(password, (hashErr, passwordHash) => {
+    if (hashErr) return res.status(500).json({ error: 'Şifrə hazırlanmadı' });
+    db.run(
+      "INSERT INTO admin_users (username, full_name, role, password_hash) VALUES (?, ?, ?, ?)",
+      [String(username).trim(), String(fullName || '').trim(), safeRole, passwordHash],
+      function (err) {
+        if (err) {
+          if (String(err.message).includes('UNIQUE')) return res.status(409).json({ error: 'Bu admin artıq var' });
+          return res.status(500).json({ error: err.message });
+        }
+        logAudit(req.superadmin.user, 'admin_user_created', 'admin_user', this.lastID, { username, role: safeRole });
+        res.json({ id: this.lastID });
+      }
+    );
+  });
+});
+
+app.put('/api/superadmin/users/:id', requireSuperAdminAuth, (req, res) => {
+  const role = ['superadmin', 'moderator', 'support'].includes(req.body && req.body.role) ? req.body.role : 'moderator';
+  const active = req.body && req.body.active === false ? 0 : 1;
+  db.run("UPDATE admin_users SET role = ?, active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [role, active, req.params.id], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    logAudit(req.superadmin.user, 'admin_user_updated', 'admin_user', req.params.id, { role, active });
+    res.json({ success: true });
+  });
+});
+
+app.get('/api/superadmin/settings', requireSuperAdminAuth, (req, res) => {
+  getSettings((err, settings) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({
+      booking_expiry_days: settingValue(settings, 'booking_expiry_days', process.env.BOOKING_EXPIRY_DAYS || '3'),
+      admin_notify_email: settingValue(settings, 'admin_notify_email', ADMIN_NOTIFY_EMAIL),
+      smtp_host: settingValue(settings, 'smtp_host', SMTP_HOST),
+      smtp_port: settingValue(settings, 'smtp_port', String(SMTP_PORT)),
+      smtp_user: settingValue(settings, 'smtp_user', SMTP_USER),
+      smtp_from: settingValue(settings, 'smtp_from', SMTP_FROM),
+      smtp_pass_configured: Boolean(settingValue(settings, 'smtp_pass', SMTP_PASS)),
+    });
+  });
+});
+
+app.put('/api/superadmin/settings', requireSuperAdminAuth, (req, res) => {
+  const body = req.body || {};
+  const updates = {
+    booking_expiry_days: String(Math.min(Math.max(parseInt(body.booking_expiry_days, 10) || 3, 1), 14)),
+    admin_notify_email: String(body.admin_notify_email || '').trim(),
+    smtp_host: String(body.smtp_host || '').trim(),
+    smtp_port: String(parseInt(body.smtp_port, 10) || 587),
+    smtp_user: String(body.smtp_user || '').trim(),
+    smtp_from: String(body.smtp_from || '').trim(),
+  };
+  if (Object.prototype.hasOwnProperty.call(body, 'smtp_pass') && String(body.smtp_pass || '').trim()) {
+    updates.smtp_pass = String(body.smtp_pass).trim();
+  }
+  const entries = Object.entries(updates);
+  db.serialize(() => {
+    const stmt = db.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP");
+    entries.forEach(([key, value]) => stmt.run(key, value));
+    stmt.finalize((err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.superadmin.user, 'settings_updated', 'app_settings', null, { keys: entries.map(([key]) => key) });
+      res.json({ success: true });
+    });
+  });
+});
+
+app.get('/api/superadmin/providers', requireSuperAdminAuth, (req, res) => {
+  db.all("SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers ORDER BY created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.put('/api/superadmin/providers/:id/status', requireSuperAdminAuth, (req, res) => {
+  const status = req.body && req.body.status;
+  const note = String((req.body && req.body.note) || '').slice(0, 500);
+  if (!['Pending', 'Approved', 'Rejected'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  db.run(
+    "UPDATE providers SET status = ?, admin_note = ?, session_token = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [status, note, req.params.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.superadmin.user, `provider_${status.toLowerCase()}`, 'provider', req.params.id, { note });
+      res.json({ success: true });
+    }
+  );
+});
+
+app.get('/api/superadmin/students', requireSuperAdminAuth, (req, res) => {
+  db.all("SELECT id, full_name, phone, email, university, status, admin_note, document_name, created_at, updated_at FROM students ORDER BY created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.put('/api/superadmin/students/:id/status', requireSuperAdminAuth, (req, res) => {
+  const status = req.body && req.body.status;
+  const note = String((req.body && req.body.note) || '').slice(0, 500);
+  if (!['Pending', 'Approved', 'Rejected'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  db.run(
+    "UPDATE students SET status = ?, admin_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [status, note, req.params.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.superadmin.user, `student_${status.toLowerCase()}`, 'student', req.params.id, { note });
+      res.json({ success: true });
+    }
+  );
 });
 
 // ---- Provider registration / login ----
@@ -1146,13 +1360,7 @@ app.get('/api/admin/places', requireAdmin, (req, res) => {
 
 // ---- Admin: Create place ----
 app.post('/api/admin/places', requireAdmin, (req, res) => {
-  const p = normalizePlacePayload(req.body || {});
-  if (!p.name) return res.status(400).json({ error: 'Ad zəruridir' });
-  insertPlace(p, null, function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    logAudit(req.admin.user, 'place_created', 'place', this.lastID, { name: p.name });
-    res.json({ id: this.lastID });
-  });
+  res.status(403).json({ error: 'Yeni obyekt yalnız ev sahibi kabinetindən göndərilə bilər' });
 });
 
 // ---- Admin: Update place ----

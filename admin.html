@@ -27,7 +27,7 @@
       .tab-btn { padding: 11px 20px; cursor: pointer; font-weight: 800; border-radius: var(--r-pill); transition: all 0.2s; color: var(--text-muted); }
       .tab-btn.active { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--brand), var(--accent-2)); box-shadow: 0 12px 28px rgba(13, 148, 136, 0.24); }
       .admin-login { min-height: calc(100vh - 80px); display: grid; place-items: center; padding: 24px; background: linear-gradient(135deg, rgba(15,23,42,0.78), rgba(13,148,136,0.54)), url("https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1600&q=85"); background-size: cover; background-position: center; }
-      .login-card { width: min(440px, 100%); background: color-mix(in srgb, var(--bg-card) 88%, transparent); border: 1px solid rgba(255,255,255,0.24); border-radius: var(--r-lg); box-shadow: var(--shadow-xl); padding: 32px; backdrop-filter: blur(18px) saturate(150%); animation: fadeUp 0.45s ease both; }
+      .login-card { width: min(440px, 100%); background: color-mix(in srgb, var(--bg-card) 96%, transparent); border: 1px solid rgba(255,255,255,0.34); border-radius: var(--r-lg); box-shadow: var(--shadow-xl); padding: 32px; backdrop-filter: blur(18px) saturate(150%); }
       .login-card h1 { margin: 0 0 20px; }
       .login-error { min-height: 22px; color: var(--danger); font-weight: 600; }
       .admin-hidden { display: none !important; }
@@ -48,7 +48,6 @@
         </a>
         <nav class="nav">
           <a href="index.html">Sayta qayıt</a>
-          <a href="superadmin.html">Superadmin</a>
           <button class="btn btn-sm admin-hidden" id="logoutBtn" type="button">Çıxış</button>
         </nav>
       </div>
@@ -82,13 +81,12 @@
         <div class="tab-btn" data-tab="verification">Verification</div>
         <div class="tab-btn" data-tab="reports">Reportlar</div>
         <div class="tab-btn" data-tab="audit">Audit</div>
-        <div class="tab-btn" data-tab="adminUsers">Adminlər</div>
       </div>
 
       <div id="tabPlaces">
         <div style="display: flex; justify-content: space-between; align-items: center">
           <h2>Mövcud Obyektlər</h2>
-          <button class="btn btn-primary" id="addPlaceBtn">+ Yeni Obyekt</button>
+          <span class="muted-small">Yeni elanlar ev sahibi kabinetindən göndərilir və “Sahib elanları” bölməsində təsdiqlənir.</span>
         </div>
         <table class="admin-table">
           <thead>
@@ -200,27 +198,7 @@
         </table>
       </div>
 
-      <div id="tabAdminUsers" style="display: none">
-        <h2>Admin rolları</h2>
-        <form id="adminUserForm" class="form-grid">
-          <label class="field"><span>Username</span><input name="username" required></label>
-          <label class="field"><span>Ad</span><input name="fullName"></label>
-          <label class="field"><span>Rol</span>
-            <select name="role">
-              <option value="moderator">Moderator</option>
-              <option value="support">Support</option>
-              <option value="superadmin">Superadmin</option>
-            </select>
-          </label>
-          <label class="field"><span>Parol</span><input name="password" type="password" minlength="8" required></label>
-          <button class="btn btn-primary full-width" type="submit">Admin yarat</button>
-          <p class="login-error full-width" id="adminUserNote"></p>
-        </form>
-        <table class="admin-table">
-          <thead><tr><th>Username</th><th>Ad</th><th>Rol</th><th>Status</th><th>Əməliyyat</th></tr></thead>
-          <tbody id="adminUsersTableBody"></tbody>
-        </table>
-      </div>
+      <div id="tabAdminUsers" style="display: none"></div>
     </div>
 
     <!-- Edit/Add Modal -->

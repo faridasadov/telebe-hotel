@@ -7,10 +7,12 @@
     <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
     <style>
       body { min-height: 100vh; }
+      [hidden] { display: none !important; }
       .super-shell { max-width: 1280px; margin: 0 auto; padding: 48px 20px; }
       .super-grid { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
       .super-panel { background: color-mix(in srgb, var(--bg-card) 94%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 24px; }
       .super-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .login-wrap { min-height: calc(100vh - 180px); display: grid; place-items: center; }
       .wide { grid-column: 1 / -1; }
       .super-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
       .super-table th, .super-table td { padding: 13px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
@@ -28,14 +30,23 @@
           <span class="logo-text">Superadmin</span>
         </a>
         <nav class="nav">
-          <a href="admin-login">Admin panel</a>
           <a href="index.html">Sayta qayıt</a>
+          <button class="btn btn-sm" id="superLogout" type="button" hidden>Çıxış</button>
         </nav>
       </div>
     </header>
 
     <main class="super-shell">
       <p id="superGuard" class="super-note"></p>
+      <section class="login-wrap" id="superLoginPanel">
+        <form id="superLoginForm" class="super-panel super-form" style="max-width:460px;width:100%">
+          <h1 class="wide">Superadmin giriş</h1>
+          <label class="field wide"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
+          <label class="field wide"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="btn btn-primary btn-lg wide" type="submit">Daxil ol</button>
+          <p class="super-note wide" id="superLoginNote"></p>
+        </form>
+      </section>
       <div class="super-grid" id="superApp" hidden>
         <section class="super-panel">
           <h1>Sistem ayarları</h1>

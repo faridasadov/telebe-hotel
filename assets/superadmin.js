@@ -13,7 +13,7 @@ function escHtml(value) {
 async function adminFetch(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: "same-origin" });
   if (response.status === 401) {
-    qs("#superGuard").innerHTML = `Superadmin sessiyası yoxdur. <a href="admin-login">Admin giriş</a>`;
+    showLogin();
     throw new Error("Unauthorized");
   }
   if (response.status === 403) {
@@ -21,6 +21,20 @@ async function adminFetch(url, options = {}) {
     throw new Error("Forbidden");
   }
   return response;
+}
+
+function showLogin(message = "") {
+  qs("#superLoginPanel").hidden = false;
+  qs("#superApp").hidden = true;
+  qs("#superLogout").hidden = true;
+  qs("#superGuard").textContent = message;
+}
+
+function showApp() {
+  qs("#superLoginPanel").hidden = true;
+  qs("#superApp").hidden = false;
+  qs("#superLogout").hidden = false;
+  qs("#superGuard").textContent = "";
 }
 
 function setNote(id, text, ok = false) {
@@ -31,7 +45,7 @@ function setNote(id, text, ok = false) {
 }
 
 async function loadSettings() {
-  const response = await adminFetch(`${API_URL}/admin/settings`);
+  const response = await adminFetch(`${API_URL}/superadmin/settings`);
   const settings = await response.json();
   if (!response.ok) throw new Error(settings.error || "Ayarlar yüklənmədi");
   const form = qs("#settingsForm");
@@ -64,9 +78,9 @@ function renderStudents(rows) {
 
 async function loadUsers() {
   const [adminsResponse, providersResponse, studentsResponse] = await Promise.all([
-    adminFetch(`${API_URL}/admin/users`),
-    adminFetch(`${API_URL}/admin/providers`),
-    adminFetch(`${API_URL}/admin/students`),
+    adminFetch(`${API_URL}/superadmin/users`),
+    adminFetch(`${API_URL}/superadmin/providers`),
+    adminFetch(`${API_URL}/superadmin/students`),
   ]);
   const [admins, providers, students] = await Promise.all([
     adminsResponse.json(),
@@ -84,7 +98,7 @@ qs("#settingsForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.currentTarget).entries());
   try {
-    const response = await adminFetch(`${API_URL}/admin/settings`, {
+    const response = await adminFetch(`${API_URL}/superadmin/settings`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -99,16 +113,44 @@ qs("#settingsForm")?.addEventListener("submit", async (e) => {
   }
 });
 
+qs("#superLoginForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const note = qs("#superLoginNote");
+  const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+  note.textContent = "";
+  try {
+    const response = await fetch(`${API_URL}/superadmin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Giriş alınmadı");
+    e.currentTarget.elements.password.value = "";
+    showApp();
+    await loadSettings();
+    await loadUsers();
+  } catch (err) {
+    note.textContent = err.message;
+    note.style.color = "var(--danger)";
+  }
+});
+
+qs("#superLogout")?.addEventListener("click", () => {
+  adminFetch(`${API_URL}/superadmin/logout`, { method: "POST" }).catch(() => {});
+  showLogin();
+});
+
 (async function initSuperadmin() {
   try {
-    const sessionResponse = await adminFetch(`${API_URL}/admin/session`);
+    const sessionResponse = await adminFetch(`${API_URL}/superadmin/session`);
     const session = await sessionResponse.json();
     if (session.role !== "superadmin") {
-      qs("#superGuard").textContent = "Bu səhifə yalnız superadmin üçündür.";
+      showLogin("Bu səhifə yalnız superadmin üçündür.");
       return;
     }
-    qs("#superGuard").textContent = "";
-    qs("#superApp").hidden = false;
+    showApp();
     await loadSettings();
     await loadUsers();
   } catch {}
