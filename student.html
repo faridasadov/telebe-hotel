@@ -26,7 +26,6 @@
       .booking-item { border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; background: var(--bg-subtle); margin-bottom: 12px; }
       .booking-item strong { display: block; }
       .student-hidden { display: none !important; }
-      .tracking-panel { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
       @media (max-width: 900px) { .student-grid, .student-form { grid-template-columns: 1fr; } }
     </style>
   </head>
@@ -47,23 +46,13 @@
     <main class="student-shell">
       <div class="container student-grid">
         <aside class="student-card" id="studentAuth">
-          <div class="tracking-panel">
-            <form id="trackingCabinetForm" class="student-form">
-              <h1 class="wide">Rezervasiya kabineti</h1>
-              <p class="meta wide">Qeydiyyatsız baxış üçün Tracking ID və rezervasiyada yazdığınız e-poçtu daxil edin.</p>
-              <label class="field"><span>Tracking ID</span><input name="trackingCode" placeholder="SS-..." required></label>
-              <label class="field"><span>E-poçt</span><input name="email" type="email" required></label>
-              <button class="btn btn-primary btn-lg wide" type="submit">Rezervasiyaya bax</button>
-              <p class="student-note wide" id="trackingCabinetNote"></p>
-            </form>
-          </div>
           <div class="student-tabs">
-            <button class="student-tab active" type="button" data-student-tab="login">Tələbə girişi</button>
-            <button class="student-tab" type="button" data-student-tab="register">Tələbə qeydiyyatı</button>
+            <button class="student-tab active" type="button" data-student-tab="login">Daxil ol</button>
+            <button class="student-tab" type="button" data-student-tab="register">Qeydiyyat</button>
           </div>
 
           <form id="studentLoginForm" class="student-form">
-            <h1 class="wide">Tələbə girişi</h1>
+            <h1 class="wide">Tələbə kabineti</h1>
             <label class="field wide"><span>E-poçt</span><input name="email" type="email" autocomplete="username" required></label>
             <label class="field wide"><span>Parol</span><input name="password" type="password" autocomplete="current-password" required></label>
             <button class="btn btn-primary btn-lg wide" type="submit">Kabinetə daxil ol</button>
@@ -115,11 +104,6 @@
           </form>
 
           <div id="studentBookings"></div>
-        </section>
-
-        <section id="trackingPanel" class="student-card student-hidden">
-          <h2>Rezervasiya statusu</h2>
-          <div id="trackingBooking"></div>
         </section>
       </div>
     </main>
