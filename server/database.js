@@ -62,6 +62,7 @@ db.serialize(() => {
     document_type TEXT,
     document_data TEXT,
     document_path TEXT,
+    expires_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(place_id) REFERENCES places(id)
@@ -75,8 +76,27 @@ db.serialize(() => {
     "ALTER TABLE bookings ADD COLUMN document_type TEXT",
     "ALTER TABLE bookings ADD COLUMN document_data TEXT",
     "ALTER TABLE bookings ADD COLUMN document_path TEXT",
+    "ALTER TABLE bookings ADD COLUMN expires_at DATETIME",
     "ALTER TABLE bookings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
   ].forEach((sql) => db.run(sql, () => {}));
+
+  db.run(`CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  [
+    ['booking_expiry_days', '3'],
+    ['admin_notify_email', ''],
+    ['smtp_host', ''],
+    ['smtp_port', '587'],
+    ['smtp_user', ''],
+    ['smtp_pass', ''],
+    ['smtp_from', 'no-reply@studentstay.az'],
+  ].forEach(([key, value]) => {
+    db.run("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", [key, value]);
+  });
 
   // ---- Students ----
   db.run(`CREATE TABLE IF NOT EXISTS students (

@@ -779,7 +779,7 @@ document.querySelector("#bookingForm")?.addEventListener("submit", async (e) => 
     });
     if (r.ok) {
       const payload = await r.json().catch(() => ({}));
-      note.textContent = `${t("form.success")} Tracking ID: ${payload.trackingCode || payload.id || ""}`;
+      note.textContent = `${t("form.success")} Tracking ID: ${payload.trackingCode || payload.id || ""}${payload.expiresAt ? ` · Razılaşma müddəti: ${new Date(payload.expiresAt).toLocaleString()}` : ""}`;
       note.style.color = "var(--success)";
       e.target.reset();
     } else {

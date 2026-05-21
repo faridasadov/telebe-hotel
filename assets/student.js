@@ -41,6 +41,7 @@ async function studentFetch(url, options = {}) {
 
 function showAuth() {
   qs("#studentPanel")?.classList.add("student-hidden");
+  qs("#trackingPanel")?.classList.add("student-hidden");
   qs("#studentLogout")?.classList.add("student-hidden");
   qs("#studentAuth")?.classList.remove("student-hidden");
 }
@@ -63,9 +64,15 @@ function showPanel(student) {
 }
 
 function bookingSteps(status) {
-  return ["Pending", "Approved", "Rejected"].map((step) => (
+  return ["Pending", "Approved", "Rejected", "Expired"].map((step) => (
     `<div class="status-step ${step === status ? "active" : ""}">${step}</div>`
   )).join("");
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 async function loadBookings() {
@@ -75,6 +82,7 @@ async function loadBookings() {
     <article class="booking-item">
       <strong>${escHtml(b.place_name || "Seçilməyib")}</strong>
       <p class="meta">Tracking ID: <b>${escHtml(b.tracking_code || "-")}</b> · ${escHtml(b.move_in || "")} · ${escHtml(b.duration || "")} ay</p>
+      <p class="meta">Razılaşma müddəti: ${escHtml(formatDate(b.expires_at))}</p>
       <div class="status-steps">${bookingSteps(b.status)}</div>
       ${b.admin_note ? `<p class="meta">Admin cavabı: ${escHtml(b.admin_note)}</p>` : ""}
       <div class="booking-actions">
@@ -101,6 +109,62 @@ document.querySelectorAll("[data-student-tab]").forEach((button) => {
     qs("#studentLoginForm").classList.toggle("student-hidden", tab !== "login");
     qs("#studentRegisterForm").classList.toggle("student-hidden", tab !== "register");
   });
+});
+
+async function renderTrackingMessages(booking) {
+  const box = qs("#trackingMessages");
+  if (!box) return;
+  const email = qs("#trackingCabinetForm")?.elements.email.value || booking.email || "";
+  const response = await fetch(`${API_URL}/bookings/status/${encodeURIComponent(booking.tracking_code)}/messages?email=${encodeURIComponent(email)}`);
+  const messages = await response.json().catch(() => []);
+  if (!response.ok) {
+    box.innerHTML = `<p class="meta">Mesajlar açılmadı.</p>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="message-list">
+      ${messages.map((m) => `<p class="meta"><b>${escHtml(m.sender_name || m.sender_type)}:</b> ${escHtml(m.message)}</p>`).join("") || `<p class="meta">Mesaj yoxdur.</p>`}
+    </div>
+    <form class="student-form" id="trackingMessageForm">
+      <label class="field wide"><span>Ev sahibinə mesaj</span><textarea name="message" rows="2" required></textarea></label>
+      <button class="btn btn-primary wide" type="submit">Mesaj göndər</button>
+    </form>
+  `;
+}
+
+function showTrackingPanel(booking) {
+  qs("#studentPanel")?.classList.add("student-hidden");
+  qs("#trackingPanel")?.classList.remove("student-hidden");
+  qs("#trackingBooking").innerHTML = `
+    <article class="booking-item">
+      <strong>${escHtml(booking.place_name || "Seçilməyib")}</strong>
+      <p class="meta">Tracking ID: <b>${escHtml(booking.tracking_code || "-")}</b> · ${escHtml(booking.full_name || "")}</p>
+      <p class="meta">${escHtml(booking.university || "")} · ${escHtml(booking.move_in || "")} · ${escHtml(booking.duration || "")} ay</p>
+      <p class="meta">Razılaşma müddəti: ${escHtml(formatDate(booking.expires_at))}</p>
+      <div class="status-steps">${bookingSteps(booking.status)}</div>
+      ${booking.admin_note ? `<p class="meta">Admin cavabı: ${escHtml(booking.admin_note)}</p>` : ""}
+      <div id="trackingMessages"></div>
+    </article>
+  `;
+  renderTrackingMessages(booking);
+}
+
+qs("#trackingCabinetForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const note = qs("#trackingCabinetNote");
+  const fd = new FormData(e.currentTarget);
+  const code = String(fd.get("trackingCode") || "").trim();
+  const email = String(fd.get("email") || "").trim();
+  try {
+    const response = await fetch(`${API_URL}/bookings/status/${encodeURIComponent(code)}`);
+    const booking = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(booking.error || "Rezervasiya tapılmadı");
+    if (String(booking.email || "").toLowerCase() !== email.toLowerCase()) throw new Error("E-poçt bu rezervasiya ilə uyğun gəlmir");
+    setNote(note, "", true);
+    showTrackingPanel(booking);
+  } catch (err) {
+    setNote(note, err.message);
+  }
 });
 
 qs("#studentRegisterForm")?.addEventListener("submit", async (e) => {
@@ -221,6 +285,26 @@ document.addEventListener("click", async (e) => {
 });
 
 document.addEventListener("submit", async (e) => {
+  const trackingMessageForm = e.target.closest("#trackingMessageForm");
+  if (trackingMessageForm) {
+    e.preventDefault();
+    const authForm = qs("#trackingCabinetForm");
+    const trackingCode = authForm?.elements.trackingCode.value || "";
+    const email = authForm?.elements.email.value || "";
+    const data = Object.fromEntries(new FormData(trackingMessageForm).entries());
+    data.email = email;
+    const response = await fetch(`${API_URL}/bookings/status/${encodeURIComponent(trackingCode)}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return alert(payload.error || "Mesaj göndərilmədi");
+    const statusResponse = await fetch(`${API_URL}/bookings/status/${encodeURIComponent(trackingCode)}`);
+    const booking = await statusResponse.json();
+    await renderTrackingMessages(booking);
+    return;
+  }
   const form = e.target.closest("[data-student-message]");
   if (!form) return;
   e.preventDefault();

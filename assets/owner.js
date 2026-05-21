@@ -33,6 +33,12 @@ function setNote(el, text, ok = false) {
   el.style.color = ok ? "var(--success)" : "var(--danger)";
 }
 
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
 async function providerFetch(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: "same-origin" });
   if (response.status === 401) {
@@ -191,6 +197,7 @@ async function loadOwnerBookings() {
       <span class="owner-status ${escHtml(b.status)}">${escHtml(b.status)}</span>
       <p class="meta">${escHtml(b.full_name)} · ${escHtml(b.phone || "")} · ${escHtml(b.email || "")}</p>
       <p class="meta">${escHtml(b.university || "")} · ${escHtml(b.move_in || "")} · ${escHtml(b.duration || "")} ay · Tracking: ${escHtml(b.tracking_code || "-")}</p>
+      <p class="meta">Razılaşma müddəti: ${escHtml(formatDate(b.expires_at))}</p>
       ${b.note ? `<p class="meta">${escHtml(b.note)}</p>` : ""}
       <button class="btn btn-sm" type="button" data-owner-messages="${escHtml(b.id)}">Mesajlar / cavab yaz</button>
       <div class="admin-hidden" data-owner-message-box="${escHtml(b.id)}"></div>

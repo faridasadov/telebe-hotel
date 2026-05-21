@@ -31,12 +31,6 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
 const loginAttempts = new Map();
 const adminSessions = new Map();
-const smtpTransport = SMTP_HOST ? nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: SMTP_PORT === 465,
-  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
-}) : null;
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(LISTING_UPLOAD_DIR, { recursive: true });
@@ -241,29 +235,95 @@ function logAudit(actor, action, entityType, entityId, details) {
   );
 }
 
+function getSettings(cb) {
+  db.all("SELECT key, value FROM app_settings", [], (err, rows) => {
+    if (err) return cb(err);
+    const settings = {};
+    (rows || []).forEach((row) => { settings[row.key] = row.value || ''; });
+    cb(null, settings);
+  });
+}
+
+function settingValue(settings, key, fallback) {
+  const value = settings && Object.prototype.hasOwnProperty.call(settings, key) ? settings[key] : '';
+  return value === '' || value === null || value === undefined ? fallback : value;
+}
+
+function bookingExpiryDays(settings) {
+  const parsed = parseInt(settingValue(settings, 'booking_expiry_days', process.env.BOOKING_EXPIRY_DAYS || '3'), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 3;
+  return Math.min(parsed, 14);
+}
+
+function expireOldBookings(cb = () => {}) {
+  getSettings((settingsErr, settings) => {
+    if (settingsErr) return cb(settingsErr);
+    const days = bookingExpiryDays(settings);
+    db.run(
+      "UPDATE bookings SET expires_at = datetime(created_at, ?) WHERE status = 'Pending' AND expires_at IS NULL",
+      [`+${days} days`],
+      (backfillErr) => {
+        if (backfillErr) return cb(backfillErr);
+        db.run(
+          "UPDATE bookings SET status = 'Expired', updated_at = CURRENT_TIMESTAMP WHERE status = 'Pending' AND expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')",
+          function (err) {
+            if (!err && this.changes) logAudit('system', 'booking_expired', 'booking', null, { count: this.changes });
+            cb(err);
+          }
+        );
+      }
+    );
+  });
+}
+
 function sendMail(to, subject, message) {
   console.log(`${subject} | ${message.replace(/\n/g, ' | ')}`);
-  if (smtpTransport && to) {
-    smtpTransport.sendMail({ from: SMTP_FROM, to, subject, text: message }).catch((err) => {
-      console.error('SMTP mail failed:', err.message);
-    });
-    return;
-  }
-  if (!to || !fs.existsSync('/usr/sbin/sendmail')) return;
-  const body = `To: ${to}\nSubject: ${subject}\n\n${message}`;
-  const child = execFile('/usr/sbin/sendmail', ['-t'], () => {});
-  child.stdin.end(body);
+  if (!to) return;
+  getSettings((settingsErr, settings) => {
+    const host = settingValue(settings || {}, 'smtp_host', SMTP_HOST);
+    const port = parseInt(settingValue(settings || {}, 'smtp_port', String(SMTP_PORT)), 10) || 587;
+    const user = settingValue(settings || {}, 'smtp_user', SMTP_USER);
+    const pass = settingValue(settings || {}, 'smtp_pass', SMTP_PASS);
+    const from = settingValue(settings || {}, 'smtp_from', SMTP_FROM);
+    if (!settingsErr && host) {
+      const transport = nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: user && pass ? { user, pass } : undefined,
+      });
+      transport.sendMail({ from, to, subject, text: message }).catch((err) => {
+        console.error('SMTP mail failed:', err.message);
+      });
+      return;
+    }
+    if (!fs.existsSync('/usr/sbin/sendmail')) return;
+    const body = `To: ${to}\nSubject: ${subject}\n\n${message}`;
+    const child = execFile('/usr/sbin/sendmail', ['-t'], () => {});
+    child.stdin.end(body);
+  });
 }
 
 function notifyAdmin(subject, message) {
-  if (!ADMIN_NOTIFY_EMAIL || !fs.existsSync('/usr/sbin/sendmail')) return;
-  sendMail(ADMIN_NOTIFY_EMAIL, subject, message);
+  getSettings((err, settings) => {
+    const email = err ? ADMIN_NOTIFY_EMAIL : settingValue(settings, 'admin_notify_email', ADMIN_NOTIFY_EMAIL);
+    if (email) sendMail(email, subject, message);
+  });
 }
 
 function notifyNewBooking(booking) {
   const message = `New StudentStay booking\nTracking: ${booking.trackingCode || '-'}\nName: ${booking.fullName}\nPhone: ${booking.phone}\nEmail: ${booking.email}\nUniversity: ${booking.university}\nPlace ID: ${booking.placeId || '-'}\n`;
   notifyAdmin('New StudentStay booking', message);
-  sendMail(booking.email, 'StudentStay rezervasiya müraciəti qəbul edildi', `Müraciətiniz qəbul edildi.\nTracking ID: ${booking.trackingCode || '-'}\nStatusu saytda "Mənim rezervasiyamı yoxla" bölməsindən izləyə bilərsiniz.`);
+  sendMail(booking.email, 'StudentStay rezervasiya müraciəti qəbul edildi', `Müraciətiniz qəbul edildi.\nTracking ID: ${booking.trackingCode || '-'}\nStatusu saytda "Mənim rezervasiyamı yoxla" bölməsindən izləyə bilərsiniz.\nRazılaşma müddəti: ${booking.expiresAt || '-'} tarixinə qədər.`);
+  if (!booking.placeId) return;
+  db.get(`SELECT pr.email, pr.full_name, pl.name
+          FROM places pl
+          JOIN providers pr ON pr.id = pl.provider_id
+          WHERE pl.id = ?`, [booking.placeId], (err, row) => {
+    if (!err && row && row.email) {
+      sendMail(row.email, 'StudentStay yeni rezervasiya sorğusu', `Salam ${row.full_name || ''},\n"${row.name}" elanı üçün rezervasiya istəyən var.\nAd: ${booking.fullName}\nTelefon: ${booking.phone}\nEmail: ${booking.email}\nTracking ID: ${booking.trackingCode || '-'}\nRazılaşma müddəti: ${booking.expiresAt || '-'}`);
+    }
+  });
 }
 
 function trackingCode() {
@@ -462,6 +522,46 @@ app.put('/api/admin/users/:id', requireAdmin, requireSuperAdmin, (req, res) => {
   });
 });
 
+app.get('/api/admin/settings', requireAdmin, requireSuperAdmin, (req, res) => {
+  getSettings((err, settings) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({
+      booking_expiry_days: settingValue(settings, 'booking_expiry_days', process.env.BOOKING_EXPIRY_DAYS || '3'),
+      admin_notify_email: settingValue(settings, 'admin_notify_email', ADMIN_NOTIFY_EMAIL),
+      smtp_host: settingValue(settings, 'smtp_host', SMTP_HOST),
+      smtp_port: settingValue(settings, 'smtp_port', String(SMTP_PORT)),
+      smtp_user: settingValue(settings, 'smtp_user', SMTP_USER),
+      smtp_from: settingValue(settings, 'smtp_from', SMTP_FROM),
+      smtp_pass_configured: Boolean(settingValue(settings, 'smtp_pass', SMTP_PASS)),
+    });
+  });
+});
+
+app.put('/api/admin/settings', requireAdmin, requireSuperAdmin, (req, res) => {
+  const body = req.body || {};
+  const updates = {
+    booking_expiry_days: String(Math.min(Math.max(parseInt(body.booking_expiry_days, 10) || 3, 1), 14)),
+    admin_notify_email: String(body.admin_notify_email || '').trim(),
+    smtp_host: String(body.smtp_host || '').trim(),
+    smtp_port: String(parseInt(body.smtp_port, 10) || 587),
+    smtp_user: String(body.smtp_user || '').trim(),
+    smtp_from: String(body.smtp_from || '').trim(),
+  };
+  if (Object.prototype.hasOwnProperty.call(body, 'smtp_pass') && String(body.smtp_pass || '').trim()) {
+    updates.smtp_pass = String(body.smtp_pass).trim();
+  }
+  const entries = Object.entries(updates);
+  db.serialize(() => {
+    const stmt = db.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP");
+    entries.forEach(([key, value]) => stmt.run(key, value));
+    stmt.finalize((err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.admin.user, 'settings_updated', 'app_settings', null, { keys: entries.map(([key]) => key) });
+      res.json({ success: true });
+    });
+  });
+});
+
 // ---- Provider registration / login ----
 app.post('/api/providers/register', (req, res) => {
   const { fullName, providerType, companyName, phone, email, password, document } = req.body || {};
@@ -643,15 +743,60 @@ app.post('/api/students/document', requireStudent, (req, res) => {
 });
 
 app.get('/api/students/bookings', requireStudent, (req, res) => {
-  db.all(`SELECT b.id, b.tracking_code, b.full_name, b.email, b.university, b.faculty, b.gender,
-          b.move_in, b.duration, b.status, b.note, b.admin_note, b.created_at, b.updated_at,
-          p.name as place_name
-          FROM bookings b
-          LEFT JOIN places p ON p.id = b.place_id
-          WHERE lower(b.email) = lower(?)
-          ORDER BY b.created_at DESC`, [req.student.email], (err, rows) => {
+  expireOldBookings((expireErr) => {
+    if (expireErr) return res.status(500).json({ error: expireErr.message });
+    db.all(`SELECT b.id, b.tracking_code, b.full_name, b.email, b.university, b.faculty, b.gender,
+            b.move_in, b.duration, b.status, b.note, b.admin_note, b.expires_at, b.created_at, b.updated_at,
+            p.name as place_name
+            FROM bookings b
+            LEFT JOIN places p ON p.id = b.place_id
+            WHERE lower(b.email) = lower(?)
+            ORDER BY b.created_at DESC`, [req.student.email], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
+  });
+});
+
+app.get('/api/bookings/status/:code/messages', (req, res) => {
+  const code = String(req.params.code || '').trim().toUpperCase();
+  const email = String(req.query.email || '').trim().toLowerCase();
+  db.get("SELECT id FROM bookings WHERE upper(tracking_code) = ? AND lower(email) = ?", [code, email], (err, booking) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı' });
+    db.all("SELECT * FROM conversation_messages WHERE booking_id = ? ORDER BY created_at ASC", [booking.id], (msgErr, rows) => {
+      if (msgErr) return res.status(500).json({ error: msgErr.message });
+      res.json(rows || []);
+    });
+  });
+});
+
+app.post('/api/bookings/status/:code/messages', (req, res) => {
+  const code = String(req.params.code || '').trim().toUpperCase();
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  const message = String((req.body && req.body.message) || '').trim().slice(0, 1000);
+  if (!email || message.length < 2) return res.status(400).json({ error: 'E-poçt və mesaj zəruridir' });
+  db.get("SELECT id, full_name, place_id FROM bookings WHERE upper(tracking_code) = ? AND lower(email) = ?", [code, email], (err, booking) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı' });
+    db.run(
+      "INSERT INTO conversation_messages (booking_id, sender_type, sender_name, message) VALUES (?, 'student', ?, ?)",
+      [booking.id, booking.full_name, message],
+      function (msgErr) {
+        if (msgErr) return res.status(500).json({ error: msgErr.message });
+        if (booking.place_id) {
+          db.get(`SELECT pr.email, pr.full_name, pl.name
+                  FROM places pl
+                  JOIN providers pr ON pr.id = pl.provider_id
+                  WHERE pl.id = ?`, [booking.place_id], (providerErr, row) => {
+            if (!providerErr && row && row.email) {
+              sendMail(row.email, 'StudentStay rezervasiya mesajı', `Salam ${row.full_name || ''},\n"${row.name}" üzrə tələbədən yeni mesaj:\n${message}`);
+            }
+          });
+        }
+        res.json({ id: this.lastID });
+      }
+    );
   });
 });
 
@@ -698,15 +843,18 @@ app.post('/api/students/bookings/:id/messages', requireStudent, (req, res) => {
 
 app.get('/api/bookings/status/:code', (req, res) => {
   const code = String(req.params.code || '').trim().toUpperCase();
-  db.get(`SELECT b.tracking_code, b.full_name, b.email, b.university, b.faculty, b.gender,
-          b.move_in, b.duration, b.status, b.admin_note, b.created_at, b.updated_at,
-          p.name as place_name
-          FROM bookings b
-          LEFT JOIN places p ON p.id = b.place_id
-          WHERE upper(b.tracking_code) = ?`, [code], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Tracking ID tapılmadı' });
-    res.json(row);
+  expireOldBookings((expireErr) => {
+    if (expireErr) return res.status(500).json({ error: expireErr.message });
+    db.get(`SELECT b.tracking_code, b.full_name, b.email, b.university, b.faculty, b.gender,
+            b.move_in, b.duration, b.status, b.admin_note, b.expires_at, b.created_at, b.updated_at,
+            p.name as place_name
+            FROM bookings b
+            LEFT JOIN places p ON p.id = b.place_id
+            WHERE upper(b.tracking_code) = ?`, [code], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: 'Tracking ID tapılmadı' });
+      res.json(row);
+    });
   });
 });
 
@@ -775,15 +923,18 @@ app.post('/api/providers/places/:id/update-request', requireProvider, (req, res)
 });
 
 app.get('/api/providers/bookings', requireProvider, (req, res) => {
-  db.all(`SELECT b.id, b.tracking_code, b.full_name, b.phone, b.email, b.university, b.faculty,
-          b.gender, b.move_in, b.duration, b.status, b.note, b.admin_note, b.created_at, b.updated_at,
-          p.name as place_name
-          FROM bookings b
-          JOIN places p ON p.id = b.place_id
-          WHERE p.provider_id = ?
-          ORDER BY b.created_at DESC`, [req.provider.id], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
+  expireOldBookings((expireErr) => {
+    if (expireErr) return res.status(500).json({ error: expireErr.message });
+    db.all(`SELECT b.id, b.tracking_code, b.full_name, b.phone, b.email, b.university, b.faculty,
+            b.gender, b.move_in, b.duration, b.status, b.note, b.admin_note, b.expires_at, b.created_at, b.updated_at,
+            p.name as place_name
+            FROM bookings b
+            JOIN places p ON p.id = b.place_id
+            WHERE p.provider_id = ?
+            ORDER BY b.created_at DESC`, [req.provider.id], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    });
   });
 });
 
@@ -910,17 +1061,28 @@ app.post('/api/bookings', (req, res) => {
     return res.status(err.statusCode || 500).json({ error: err.message });
   }
   const code = trackingCode();
-  const sql = `INSERT INTO bookings
-    (full_name, phone, email, university, faculty, gender, move_in, duration, tracking_code, place_id, note, document_name, document_type, document_path)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  db.run(sql, [
-    fullName, phone, email, university, faculty, gender, moveIn, duration, code, placeId || null, note || '',
-    doc.document_name || null, doc.document_type || null, doc.document_path || null
-  ], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    logAudit(String(email).trim().toLowerCase(), 'booking_submitted', 'booking', this.lastID, { tracking_code: code, place_id: placeId || null });
-    notifyNewBooking({ fullName, phone, email, university, placeId, trackingCode: code });
-    res.json({ message: "Success", id: this.lastID, trackingCode: code });
+  getSettings((settingsErr, settings) => {
+    if (settingsErr) {
+      removeStoredDocument(doc.document_path);
+      return res.status(500).json({ error: settingsErr.message });
+    }
+    const expiryDays = bookingExpiryDays(settings);
+    const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
+    const sql = `INSERT INTO bookings
+      (full_name, phone, email, university, faculty, gender, move_in, duration, tracking_code, place_id, note, document_name, document_type, document_path, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    db.run(sql, [
+      fullName, phone, email, university, faculty, gender, moveIn, duration, code, placeId || null, note || '',
+      doc.document_name || null, doc.document_type || null, doc.document_path || null, expiresAt
+    ], function (err) {
+      if (err) {
+        removeStoredDocument(doc.document_path);
+        return res.status(500).json({ error: err.message });
+      }
+      logAudit(String(email).trim().toLowerCase(), 'booking_submitted', 'booking', this.lastID, { tracking_code: code, place_id: placeId || null, expires_at: expiresAt });
+      notifyNewBooking({ fullName, phone, email, university, placeId, trackingCode: code, expiresAt });
+      res.json({ message: "Success", id: this.lastID, trackingCode: code, expiresAt });
+    });
   });
 });
 
@@ -951,7 +1113,9 @@ app.post('/api/reports', (req, res) => {
 
 function sendStats(res) {
   const stats = {};
-  db.get("SELECT count(*) as count FROM places", (err, row) => {
+  expireOldBookings((expireErr) => {
+    if (expireErr) return res.status(500).json({ error: expireErr.message });
+    db.get("SELECT count(*) as count FROM places", (err, row) => {
     if (err || !row) return res.status(500).json({ error: 'DB error' });
     stats.totalPlaces = row.count;
     db.get("SELECT sum(total_spots) as total, sum(free_spots) as free FROM places", (err, row) => {
@@ -964,6 +1128,7 @@ function sendStats(res) {
         res.json(stats);
       });
     });
+  });
   });
 }
 
@@ -1147,14 +1312,17 @@ app.put('/api/admin/provider-listings/:id/status', requireAdmin, (req, res) => {
 
 // ---- Admin: Bookings ----
 app.get('/api/admin/bookings', requireAdmin, (req, res) => {
-  db.all(`SELECT b.id, b.tracking_code, b.full_name, b.phone, b.email, b.university, b.faculty, b.gender,
-          b.move_in, b.duration, b.status, b.place_id, b.note, b.admin_note, b.document_name, b.document_type,
-          b.created_at, b.updated_at, p.name as place_name
-          FROM bookings b
-          LEFT JOIN places p ON b.place_id = p.id
-          ORDER BY b.created_at DESC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+  expireOldBookings((expireErr) => {
+    if (expireErr) return res.status(500).json({ error: expireErr.message });
+    db.all(`SELECT b.id, b.tracking_code, b.full_name, b.phone, b.email, b.university, b.faculty, b.gender,
+            b.move_in, b.duration, b.status, b.place_id, b.note, b.admin_note, b.document_name, b.document_type,
+            b.expires_at, b.created_at, b.updated_at, p.name as place_name
+            FROM bookings b
+            LEFT JOIN places p ON b.place_id = p.id
+            ORDER BY b.created_at DESC`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    });
   });
 });
 
@@ -1329,6 +1497,9 @@ app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
     });
   });
 });
+
+setInterval(() => expireOldBookings(), 60 * 60 * 1000);
+expireOldBookings();
 
 const server = app.listen(PORT, () => console.log(`Server is running on http://localhost:${PORT}`));
 

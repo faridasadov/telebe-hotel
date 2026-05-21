@@ -149,6 +149,7 @@ function statusClass(status) {
   if (status === "Resolved" || status === "Reviewed") return "status-approved";
   if (status === "Rejected") return "status-rejected";
   if (status === "Cancelled") return "status-rejected";
+  if (status === "Expired") return "status-rejected";
   return "status-pending";
 }
 
@@ -163,6 +164,7 @@ async function fetchBookings() {
         <strong>${escHtml(b.full_name)}</strong><br>
         <small>${escHtml(b.phone)} | ${escHtml(b.email)}</small>
         <span class="muted-small">Tracking: ${escHtml(b.tracking_code || "-")}</span>
+        <span class="muted-small">Razılaşma: ${escHtml(b.expires_at ? new Date(b.expires_at).toLocaleString() : "-")}</span>
         ${b.note ? `<span class="muted-small">${escHtml(b.note)}</span>` : ""}
         ${b.admin_note ? `<span class="muted-small">Admin: ${escHtml(b.admin_note)}</span>` : ""}
       </td>

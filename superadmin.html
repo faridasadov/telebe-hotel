@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="az" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudentStay Superadmin</title>
+    <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
+    <style>
+      body { min-height: 100vh; }
+      .super-shell { max-width: 1280px; margin: 0 auto; padding: 48px 20px; }
+      .super-grid { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
+      .super-panel { background: color-mix(in srgb, var(--bg-card) 94%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 24px; }
+      .super-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .wide { grid-column: 1 / -1; }
+      .super-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+      .super-table th, .super-table td { padding: 13px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+      .super-table th { background: var(--bg-subtle); font-size: 12px; text-transform: uppercase; }
+      .super-table tr:last-child td { border-bottom: 0; }
+      .super-note { min-height: 22px; font-weight: 800; }
+      @media (max-width: 900px) { .super-grid, .super-form { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header-inner">
+        <a class="logo" href="index.html">
+          <span class="logo-mark">S</span>
+          <span class="logo-text">Superadmin</span>
+        </a>
+        <nav class="nav">
+          <a href="admin-login">Admin panel</a>
+          <a href="index.html">Sayta qayıt</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="super-shell">
+      <p id="superGuard" class="super-note"></p>
+      <div class="super-grid" id="superApp" hidden>
+        <section class="super-panel">
+          <h1>Sistem ayarları</h1>
+          <form id="settingsForm" class="super-form">
+            <label class="field"><span>Rezervasiya müddəti (gün)</span><input name="booking_expiry_days" type="number" min="1" max="14" required></label>
+            <label class="field"><span>Admin report e-poçtu</span><input name="admin_notify_email" type="email"></label>
+            <label class="field"><span>SMTP host</span><input name="smtp_host" placeholder="smtp.example.com"></label>
+            <label class="field"><span>SMTP port</span><input name="smtp_port" type="number" placeholder="587"></label>
+            <label class="field"><span>SMTP user</span><input name="smtp_user" autocomplete="username"></label>
+            <label class="field"><span>SMTP from</span><input name="smtp_from" type="email"></label>
+            <label class="field wide"><span>SMTP parol</span><input name="smtp_pass" type="password" autocomplete="new-password" placeholder="Boş saxlanılsa əvvəlki parol qalır"></label>
+            <button class="btn btn-primary wide" type="submit">Ayarları yadda saxla</button>
+            <p class="super-note wide" id="settingsNote"></p>
+          </form>
+        </section>
+
+        <section class="super-panel">
+          <h2>İstifadəçi nəzarəti</h2>
+          <div class="dashboard-cards">
+            <div class="d-card"><h3>Adminlər</h3><strong id="adminCount">-</strong></div>
+            <div class="d-card"><h3>Ev sahibləri</h3><strong id="providerCount">-</strong></div>
+            <div class="d-card"><h3>Tələbələr</h3><strong id="studentCount">-</strong></div>
+          </div>
+          <h3>Ev sahibləri</h3>
+          <table class="super-table"><thead><tr><th>Ad</th><th>Əlaqə</th><th>Status</th><th>Qeyd</th></tr></thead><tbody id="providersBody"></tbody></table>
+          <h3>Tələbələr</h3>
+          <table class="super-table"><thead><tr><th>Ad</th><th>Universitet</th><th>Status</th><th>Qeyd</th></tr></thead><tbody id="studentsBody"></tbody></table>
+        </section>
+      </div>
+    </main>
+
+    <script src="assets/superadmin.js?v=20260521-final"></script>
+  </body>
+</html>
