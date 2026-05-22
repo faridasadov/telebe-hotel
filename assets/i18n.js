@@ -206,6 +206,10 @@ window.I18N = {
     "providers.subtitle": "Qeydiyyat üçün şəxsiyyət və əlaqə məlumatları tələb olunur. Admin təsdiqindən sonra paneliniz açılır və göndərdiyiniz hər elan ayrıca yoxlanılır.",
     "providers.cta": "Elan yerləşdirmək üçün qeydiyyat",
     "footer.rights": "Bütün hüquqlar qorunur.",
+    "card.tag.verified": "Doğrulanmış sahibi",
+    "card.report": "Şikayət et",
+    "report.success": "Şikayət göndərildi. Adminlər yoxlayacaq.",
+    "report.error": "Şikayət göndərilmədi",
   },
 
   // ============= RUSSIAN =============
@@ -413,6 +417,10 @@ window.I18N = {
     "providers.subtitle": "Для регистрации нужны документы и контактные данные. После одобрения администратора открывается кабинет, а каждое объявление проходит отдельную проверку.",
     "providers.cta": "Зарегистрироваться для объявления",
     "footer.rights": "Все права защищены.",
+    "card.tag.verified": "Проверенный владелец",
+    "card.report": "Пожаловаться",
+    "report.success": "Жалоба отправлена. Администраторы проверят.",
+    "report.error": "Не удалось отправить жалобу",
   },
 
   // ============= ENGLISH =============
@@ -620,5 +628,9 @@ window.I18N = {
     "providers.subtitle": "Registration requires identity and contact details. After admin approval, your dashboard opens and every listing is reviewed separately.",
     "providers.cta": "Register to list a property",
     "footer.rights": "All rights reserved.",
+    "card.tag.verified": "Verified Owner",
+    "card.report": "Report",
+    "report.success": "Report submitted. Admins will review it.",
+    "report.error": "Failed to send report",
   },
 };

@@ -1,7 +1,7 @@
 // =========================================
 // StudentStay — Application
 // =========================================
-const API_URL = window.STUDENTSTAY_API_URL || (window.location.protocol === "file:" ? "http://localhost:3000/api" : "/api");
+const API_URL = window.STUDENTSTAY_API_URL || (window.location.protocol === "file:" ? "http://localhost:4000/api" : "/api");
 const STORE = { lang: "lang", theme: "theme" };
 const SUPPORTED_LANGS = ["az", "ru", "en"];
 
@@ -213,23 +213,114 @@ const filters = {
   contract: document.querySelector("#contractFilter"),
   ac: document.querySelector("#acFilter"),
   heating: document.querySelector("#heatingFilter"),
+  favorites: document.querySelector("#favoritesFilter"),
   sort: document.querySelector("#sortFilter"),
 };
+
+// ---------- Filter badge & chips ----------
+const FILTER_LABELS = {
+  city: { baku: "Bakı", ganja: "Gəncə", sumgayit: "Sumqayıt" },
+  type: { hostel: "Yataqxana", apartment: "Kirayə ev", hotel: "Hotel" },
+  gender: { female: "Qız üçün", male: "Oğlan üçün", mixed: "Qarışıq" },
+};
+
+function countActiveFilters() {
+  let n = 0;
+  if (filters.city?.value !== "all") n++;
+  if (filters.type?.value !== "all") n++;
+  if (filters.gender?.value !== "all") n++;
+  if (filters.university?.value !== "all") n++;
+  if (filters.minPrice && parseInt(filters.minPrice.value) > 150) n++;
+  if (filters.price && parseInt(filters.price.value) < 900) n++;
+  if (filters.wifi?.checked) n++;
+  if (filters.utilities?.checked) n++;
+  if (filters.ac?.checked) n++;
+  if (filters.heating?.checked) n++;
+  if (filters.favorites?.checked) n++;
+  if (filters.rooms?.value !== "all") n++;
+  if (filters.metro?.value) n++;
+  if (filters.contract?.value) n++;
+  return n;
+}
+
+function updateFilterBadge() {
+  const badge = document.getElementById("filterBadge");
+  const resetBtn = document.getElementById("resetFilters");
+  const n = countActiveFilters();
+  if (badge) {
+    badge.textContent = n;
+    badge.style.display = n > 0 ? "" : "none";
+  }
+  if (resetBtn) resetBtn.style.display = n > 0 ? "" : "none";
+}
+
+function renderActiveChips() {
+  const container = document.getElementById("activeFilterChips");
+  if (!container) return;
+  const chips = [];
+
+  const push = (label, resetFn) => chips.push({ label, resetFn });
+
+  if (filters.city?.value !== "all") push(FILTER_LABELS.city[filters.city.value] || filters.city.value, () => { filters.city.value = "all"; });
+  if (filters.type?.value !== "all") push(FILTER_LABELS.type[filters.type.value] || filters.type.value, () => { filters.type.value = "all"; });
+  if (filters.gender?.value !== "all") push(FILTER_LABELS.gender[filters.gender.value] || filters.gender.value, () => { filters.gender.value = "all"; });
+  if (filters.university?.value !== "all") push(filters.university.value, () => { filters.university.value = "all"; });
+  if (filters.minPrice && parseInt(filters.minPrice.value) > 150) push(`≥${filters.minPrice.value} AZN`, () => { filters.minPrice.value = "150"; });
+  if (filters.price && parseInt(filters.price.value) < 900) push(`≤${filters.price.value} AZN`, () => { filters.price.value = "900"; });
+  if (filters.wifi?.checked) push("Wi-Fi", () => { filters.wifi.checked = false; });
+  if (filters.utilities?.checked) push("Kommunal", () => { filters.utilities.checked = false; });
+  if (filters.ac?.checked) push("Kondisioner", () => { filters.ac.checked = false; });
+  if (filters.heating?.checked) push("İstilik", () => { filters.heating.checked = false; });
+  if (filters.favorites?.checked) push("♥ Favorilərim", () => { filters.favorites.checked = false; });
+  if (filters.rooms?.value !== "all") push(`${filters.rooms.value}+ otaq`, () => { filters.rooms.value = "all"; });
+  if (filters.metro?.value) push(`≤${filters.metro.value} dəq`, () => { filters.metro.value = ""; });
+  if (filters.contract?.value) push(`${filters.contract.value} ay+`, () => { filters.contract.value = ""; });
+
+  container.style.display = chips.length ? "" : "none";
+  container.innerHTML = chips.map((c, i) =>
+    `<button class="filter-chip" data-chip-idx="${i}" type="button">${escHtml(c.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`
+  ).join("");
+
+  container.querySelectorAll("[data-chip-idx]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      chips[parseInt(btn.dataset.chipIdx)].resetFn();
+      renderPlaces();
+    });
+  });
+}
+
+function updateRangeTrack() {
+  if (minPriceFilter && priceFilter) {
+    const min = parseInt(minPriceFilter.value);
+    const max = parseInt(priceFilter.value);
+    const total = 900 - 150;
+    const minPct = ((min - 150) / total * 100).toFixed(1);
+    const maxPct = ((max - 150) / total * 100).toFixed(1);
+    minPriceFilter.style.setProperty("--pct", minPct + "%");
+    priceFilter.style.setProperty("--pct", maxPct + "%");
+  }
+}
 
 // ---------- Card ----------
 function placeCard(place) {
   const v = place.free_spots;
   const occupied = place.total_spots - v;
   const percent = place.total_spots > 0 ? Math.round((occupied / place.total_spots) * 100) : 0;
+  const isFull = v <= 0;
   const status = getStatus(place);
   const cover = (place.images && place.images[0]) || "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=900&q=80";
   const nearest = place.universities && place.universities[0];
+  const isFav = getFavs().has(place.id);
 
   return `
-    <article class="place-card">
+    <article class="place-card${isFull ? " place-card-full" : ""}">
       <div class="place-image" data-open-place="${place.id}">
         <img src="${escHtml(cover)}" alt="${escHtml(place.name)}" loading="lazy">
         <span class="price-tag">${escHtml(String(place.price))} AZN</span>
+        <button class="fav-btn${isFav ? " fav-active" : ""}" type="button" data-fav="${place.id}" title="${isFav ? "Sevimlilərdan çıxar" : "Sevimlilərə əlavə et"}" aria-label="Sevimli">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="${isFav ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </button>
+        ${isFull ? `<div class="full-overlay">Tam dolu</div>` : ""}
       </div>
       <div class="place-body">
         <div class="place-title">
@@ -245,7 +336,7 @@ function placeCard(place) {
         <div class="tags">
           <span class="tag">${escHtml(typeName(place.type))}</span>
           <span class="tag">${escHtml(genderName(place.gender))}</span>
-          ${place.verified_owner ? `<span class="tag verified-owner">Verified Owner</span>` : ""}
+          ${place.verified_owner ? `<span class="tag verified-owner">${t("card.tag.verified")}</span>` : ""}
           <span class="tag">${place.utilities ? t("card.tag.utilOn") : t("card.tag.utilOff")}</span>
           <span class="tag">${place.wifi ? t("card.tag.wifiOn") : t("card.tag.wifiOff")}</span>
         </div>
@@ -253,21 +344,18 @@ function placeCard(place) {
         <div class="occupancy">
           <div><span>${t("card.beds")}</span><strong>${place.total_spots}</strong></div>
           <div><span>${t("card.vacant")}</span><strong>${place.free_spots}</strong></div>
-          <div><span>${t("card.occupied")}</span><strong>${occupied}</strong></div>
           <div><span>${t("card.occupancy")}</span><strong>${percent}%</strong></div>
-          <div><span>${t("card.rooms")}</span><strong>${place.room_count || 1}</strong></div>
-          <div><span>${t("card.metro")}</span><strong>${place.metro_distance_min || "—"}</strong></div>
         </div>
         <div class="meter"><span style="width: ${percent}%"></span></div>
 
         <div class="gender-breakdown">
           <span>${t("card.gender.occupied", { f: place.female_occupied, m: place.male_occupied })}</span>
           <strong class="vacancy-info">${
-            place.female_free > 0 && place.male_free > 0 
+            place.female_free > 0 && place.male_free > 0
               ? t("card.gender.free.both", { f: place.female_free, m: place.male_free })
-              : place.female_free > 0 
+              : place.female_free > 0
                 ? t("card.gender.free.f", { n: place.female_free })
-                : place.male_free > 0 
+                : place.male_free > 0
                   ? t("card.gender.free.m", { n: place.male_free })
                   : ""
           }</strong>
@@ -278,16 +366,42 @@ function placeCard(place) {
         </div>` : ""}
 
         <div class="card-actions">
-          <a class="btn btn-primary" href="#" data-open-place="${place.id}">${t("card.apply")} →</a>
-          <button class="btn btn-sm" type="button" data-report-place="${place.id}">Şikayət et</button>
+          ${isFull
+            ? `<button class="btn btn-primary" type="button" data-open-place="${place.id}" style="background:var(--text-muted)">Gözləmə siyahısı →</button>`
+            : `<a class="btn btn-primary" href="student.html" data-book-place="${place.id}">${t("card.apply")} →</a>`}
+          <button class="btn btn-sm" type="button" data-report-place="${place.id}">${t("card.report")}</button>
         </div>
       </div>
     </article>
   `;
 }
 
+// ---------- Favourites ----------
+const FAVS_KEY = "ss_favs";
+function getFavs() { try { return new Set(JSON.parse(localStorage.getItem(FAVS_KEY)) || []); } catch { return new Set(); } }
+function saveFavs(set) { localStorage.setItem(FAVS_KEY, JSON.stringify([...set])); }
+function toggleFav(id) {
+  const favs = getFavs();
+  if (favs.has(id)) favs.delete(id); else favs.add(id);
+  saveFavs(favs);
+  document.querySelectorAll(`[data-fav="${id}"]`).forEach(btn => {
+    btn.classList.toggle("fav-active", favs.has(id));
+    btn.title = favs.has(id) ? "Sevimlilərdan çıxar" : "Sevimlilərə əlavə et";
+  });
+}
+
 // ---------- Data ----------
 async function fetchPlaces() {
+  const searchEl = document.getElementById("placeSearch");
+
+  // Guard: ensure min <= max for price range
+  if (filters.minPrice && filters.price) {
+    const minV = parseInt(filters.minPrice.value);
+    const maxV = parseInt(filters.price.value);
+    if (minV > maxV) filters.price.value = String(minV);
+    if (maxV < minV) filters.minPrice.value = String(maxV);
+  }
+
   const params = new URLSearchParams({
     city: filters.city.value,
     type: filters.type.value,
@@ -302,6 +416,7 @@ async function fetchPlaces() {
     minContract: filters.contract ? filters.contract.value : "",
     ac: filters.ac ? filters.ac.checked : false,
     heating: filters.heating ? filters.heating.checked : false,
+    q: searchEl ? searchEl.value.trim() : "",
   });
 
   try {
@@ -310,30 +425,110 @@ async function fetchPlaces() {
     let data = await r.json();
     if (filters.sort.value === "price") data.sort((a, b) => a.price - b.price);
     else if (filters.sort.value === "vacancy") data.sort((a, b) => b.free_spots - a.free_spots);
+    else if (filters.sort.value === "rating") data.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    // Favorites filter (client-side)
+    if (filters.favorites?.checked) {
+      const favs = getFavs();
+      data = data.filter(p => favs.has(p.id));
+    }
     return data;
   } catch (e) {
     console.warn("Backend not found, using static fallback.");
-    return STATIC_PLACES;
+    let data = STATIC_PLACES;
+    if (filters.favorites?.checked) {
+      const favs = getFavs();
+      data = data.filter(p => favs.has(p.id));
+    }
+    return data;
   }
+}
+
+const PAGE_SIZE = 6;
+let _allPlaces = [];
+let _currentPage = 1;
+
+function totalPages() { return Math.ceil(_allPlaces.length / PAGE_SIZE); }
+
+function renderPagination() {
+  const existing = document.getElementById("placePagination");
+  if (existing) existing.remove();
+  if (_allPlaces.length <= PAGE_SIZE) return;
+
+  const total = totalPages();
+  const cur = _currentPage;
+
+  // build page numbers with ellipsis
+  const pages = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= cur - 1 && i <= cur + 1)) pages.push(i);
+    else if (pages[pages.length - 1] !== "…") pages.push("…");
+  }
+
+  const wrap = document.createElement("div");
+  wrap.id = "placePagination";
+  wrap.style.cssText = "grid-column:1/-1;display:flex;justify-content:center;align-items:center;gap:6px;padding:16px 0 4px;flex-wrap:wrap";
+
+  const mkBtn = (label, page, active, disabled) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.disabled = disabled;
+    b.style.cssText = `min-width:38px;height:38px;padding:0 10px;border-radius:var(--r-md);font-size:14px;font-weight:700;border:1.5px solid ${active ? "var(--brand)" : "var(--border)"};background:${active ? "var(--brand)" : "var(--bg-card)"};color:${active ? "#fff" : "var(--text)"};cursor:${disabled ? "default" : "pointer"};opacity:${disabled ? ".4" : "1"};transition:all .15s`;
+    if (!disabled && page !== null) {
+      b.addEventListener("click", () => {
+        _currentPage = page;
+        placeGrid.innerHTML = _allPlaces.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(placeCard).join("");
+        renderPagination();
+        document.getElementById("places")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    return b;
+  };
+
+  wrap.appendChild(mkBtn("‹", cur - 1, false, cur === 1));
+  pages.forEach(p => {
+    if (p === "…") {
+      const span = document.createElement("span");
+      span.textContent = "…";
+      span.style.cssText = "padding:0 4px;color:var(--text-muted);font-weight:700";
+      wrap.appendChild(span);
+    } else {
+      wrap.appendChild(mkBtn(p, p, p === cur, false));
+    }
+  });
+  wrap.appendChild(mkBtn("›", cur + 1, false, cur === total));
+
+  placeGrid.appendChild(wrap);
 }
 
 async function renderPlaces() {
   if (!placeGrid) return;
   if (minPriceValue && filters.minPrice) minPriceValue.textContent = filters.minPrice.value;
-  priceValue.textContent = filters.price.value;
+  if (priceValue && filters.price) priceValue.textContent = filters.price.value;
+  updateRangeTrack();
+  updateFilterBadge();
+  renderActiveChips();
+
   const data = await fetchPlaces();
 
   if (data === null) {
     placeGrid.innerHTML = `<div class="empty-state"><h3>${t("card.offline.title")}</h3><p>${t("card.offline.body")}</p></div>`;
-    resultCount.textContent = "—";
+    if (resultCount) resultCount.textContent = "—";
     return;
   }
 
-  resultCount.textContent = t("results.count", { n: data.length });
+  _allPlaces = data;
+  _currentPage = 1;
+
+  if (resultCount) resultCount.textContent = t("results.count", { n: data.length });
+
+  const preview = document.getElementById("filterResultCount");
+  if (preview) preview.textContent = `${data.length} obyekt tapıldı`;
+
   placeGrid.innerHTML = data.length
-    ? data.map(placeCard).join("")
+    ? data.slice(0, PAGE_SIZE).map(placeCard).join("")
     : `<div class="empty-state"><h3>${t("card.empty.title")}</h3><p>${t("card.empty.body")}</p></div>`;
 
+  if (data.length) renderPagination();
   updateMapMarkers(data);
 }
 
@@ -351,6 +546,20 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("[data-report-place]")) {
     e.preventDefault();
     openReportModal(e.target.closest("[data-report-place]").dataset.reportPlace);
+  }
+  // Favourite toggle
+  const favBtn = e.target.closest("[data-fav]");
+  if (favBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFav(parseInt(favBtn.dataset.fav));
+  }
+  // Book now from card/modal → go to student.html with placeId in sessionStorage
+  const bookLink = e.target.closest("[data-book-place]");
+  if (bookLink) {
+    sessionStorage.setItem("ss_book_place_id", bookLink.dataset.bookPlace);
+    const name = bookLink.dataset.bookName || "";
+    if (name) sessionStorage.setItem("ss_book_place_name", name);
   }
 });
 
@@ -575,8 +784,12 @@ function renderModal() {
         <strong>${escHtml(String(p.price))} AZN</strong>
         <span>${t("modal.perMonth")}</span>
       </div>
-      <button class="btn btn-sm" type="button" data-report-place="${p.id}">Şikayət et</button>
-      <a class="btn btn-primary btn-lg" href="#booking" id="modalBook">${t("modal.bookNow")} →</a>
+      <button class="btn btn-sm" type="button" data-report-place="${p.id}">${t("card.report")}</button>
+      <button class="btn btn-sm" type="button" id="modalShare" title="Paylaş" style="gap:6px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Paylaş
+      </button>
+      <a class="btn btn-primary btn-lg" href="student.html" id="modalBook" data-book-place="${p.id}" data-book-name="${escHtml(p.name)}">${t("modal.bookNow")} →</a>
     </div>
   `;
 
@@ -647,12 +860,26 @@ function renderModal() {
     });
   });
 
-  // Book button → scroll to booking + selection
-  const bookBtn = modalBody.querySelector("#modalBook");
-  if (bookBtn) {
-    bookBtn.addEventListener("click", () => {
-      setPlaceSelection(String(p.id), p.name);
-      closeModal();
+  // Share button
+  const shareBtn = modalBody.querySelector("#modalShare");
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const shareUrl = `${location.origin}${location.pathname}?place=${p.id}`;
+      const shareText = `${p.name} — ${p.price} AZN/ay | StudentStay`;
+      if (navigator.share) {
+        navigator.share({ title: p.name, text: shareText, url: shareUrl }).catch(() => {});
+      } else {
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText + "\n" + shareUrl)}`;
+        const menu = document.createElement("div");
+        menu.style.cssText = "position:fixed;bottom:100px;right:24px;z-index:9999;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:8px;min-width:200px";
+        menu.innerHTML = `
+          <button onclick="navigator.clipboard.writeText('${shareUrl}');this.textContent='✓ Kopyalandı!'" style="text-align:left;padding:8px 12px;border:none;background:none;cursor:pointer;border-radius:var(--r-sm);font-size:14px;font-weight:600;color:var(--text)">🔗 Linki kopyala</button>
+          <a href="${waUrl}" target="_blank" style="display:block;padding:8px 12px;border-radius:var(--r-sm);font-size:14px;font-weight:600;color:#25D366;text-decoration:none">📱 WhatsApp ilə paylaş</a>
+        `;
+        document.body.appendChild(menu);
+        setTimeout(() => menu.remove(), 5000);
+        document.addEventListener("click", () => menu.remove(), { once: true });
+      }
     });
   }
 }
@@ -691,8 +918,8 @@ reportForm?.addEventListener("submit", async (e) => {
       body: JSON.stringify(payload),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || "Report göndərilmədi");
-    note.textContent = "Report göndərildi. Adminlər yoxlayacaq.";
+    if (!r.ok) throw new Error(data.error || t("report.error"));
+    note.textContent = t("report.success");
     note.style.color = "var(--success)";
     reportForm.reset();
     setTimeout(closeReportModal, 900);
@@ -722,21 +949,27 @@ Object.values(filters).forEach((el) => {
   el.addEventListener("change", renderPlaces);
 });
 
+document.querySelector("#placeSearch")?.addEventListener("input", () => {
+  _currentPage = 1;
+  renderPlaces();
+});
+
 document.querySelector("#resetFilters")?.addEventListener("click", () => {
-  filters.city.value = "all";
-  filters.type.value = "all";
-  filters.gender.value = "all";
+  if (filters.city) filters.city.value = "all";
+  if (filters.type) filters.type.value = "all";
+  if (filters.gender) filters.gender.value = "all";
   if (filters.university) filters.university.value = "all";
   if (filters.minPrice) filters.minPrice.value = "150";
-  filters.price.value = "900";
-  filters.wifi.checked = false;
-  filters.utilities.checked = false;
+  if (filters.price) filters.price.value = "900";
+  if (filters.wifi) filters.wifi.checked = false;
+  if (filters.utilities) filters.utilities.checked = false;
   if (filters.rooms) filters.rooms.value = "all";
   if (filters.metro) filters.metro.value = "";
   if (filters.contract) filters.contract.value = "";
   if (filters.ac) filters.ac.checked = false;
   if (filters.heating) filters.heating.checked = false;
-  filters.sort.value = "recommended";
+  if (filters.favorites) filters.favorites.checked = false;
+  if (filters.sort) filters.sort.value = "recommended";
   renderPlaces();
 });
 
@@ -783,7 +1016,8 @@ document.querySelector("#bookingForm")?.addEventListener("submit", async (e) => 
       note.style.color = "var(--success)";
       e.target.reset();
     } else {
-      note.textContent = t("form.error");
+      const errData = await r.json().catch(() => ({}));
+      note.textContent = errData.error || t("form.error");
       note.style.color = "var(--danger)";
     }
   } catch {
@@ -855,7 +1089,14 @@ window.openPlaceModal = openPlaceModal;
 
 // ---------- Controls ----------
 document.querySelector("#langSwitcher")?.addEventListener("change", (e) => applyLang(e.target.value));
-document.querySelector("#themeToggle")?.addEventListener("click", () => applyTheme(getTheme() === "light" ? "dark" : "light"));
+document.querySelector("#themeToggle")?.addEventListener("click", (e) => {
+  const el = e.currentTarget;
+  el.classList.remove("spinning");
+  void el.offsetWidth; // reflow to restart animation
+  el.classList.add("spinning");
+  el.addEventListener("animationend", () => el.classList.remove("spinning"), { once: true });
+  applyTheme(getTheme() === "light" ? "dark" : "light");
+});
 
 // ---------- Locked credit ----------
 function lockDesignerCredit() {
@@ -890,7 +1131,288 @@ async function updateStats() {
     document.querySelector("#langSwitcher").value = lang;
   }
   applyTheme(getTheme());
-  applyLang(lang); 
+  applyLang(lang);
   lockDesignerCredit();
   updateStats();
+})();
+
+// ============================================================
+// AUTH MODAL MODULE
+// ============================================================
+(function authModule() {
+  let _role = null;   // 'student' | 'provider'
+  let _mode = 'login'; // 'login' | 'register'
+
+  /* ---- Session check ---- */
+  async function checkSession() {
+    try {
+      const r = await fetch(`${API_URL}/students/session`, { credentials: "same-origin" });
+      if (r.ok) { const d = await r.json(); setNavLoggedIn("student", d.student.full_name || d.student.name); return; }
+    } catch {}
+    try {
+      const r = await fetch(`${API_URL}/providers/session`, { credentials: "same-origin" });
+      if (r.ok) { const d = await r.json(); setNavLoggedIn("provider", d.provider.full_name || d.provider.name); return; }
+    } catch {}
+    setNavLoggedOut();
+  }
+
+  /* ---- Nav state ---- */
+  function setNavLoggedIn(role, name) {
+    const wrap = document.getElementById("authNavWrap");
+    if (!wrap) return;
+    const first = (name || "").split(" ")[0] || name;
+    const initial = (name || "?").charAt(0).toUpperCase();
+    const cabinet = role === "student" ? "student.html" : "owner-login.html";
+    const roleLabel = role === "student" ? "Tələbə" : "Ev sahibi";
+    const avatarBg = role === "student" ? "var(--brand)" : "var(--accent)";
+
+    wrap.innerHTML = `
+      <div class="user-nav" id="userNavRoot">
+        <button class="user-nav-btn" id="userNavToggle" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="user-avatar-nav" style="background:${avatarBg}">${escHtml(initial)}</span>
+          <span class="user-nav-label"><span class="user-nav-role">${escHtml(roleLabel)}:</span> ${escHtml(first)}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="user-nav-dropdown" id="userNavDropdown" style="display:none">
+          <a class="user-nav-item" href="${escHtml(cabinet)}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Şəxsi kabinet
+          </a>
+          <button class="user-nav-item user-nav-logout" id="navLogoutBtn" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Çıxış
+          </button>
+        </div>
+      </div>`;
+
+    document.getElementById("userNavToggle")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const dd = document.getElementById("userNavDropdown");
+      const btn = e.currentTarget;
+      const open = dd.style.display === "none";
+      dd.style.display = open ? "" : "none";
+      btn.setAttribute("aria-expanded", open);
+    });
+
+    document.getElementById("navLogoutBtn")?.addEventListener("click", async () => {
+      const url = `${API_URL}/${role === "student" ? "students" : "providers"}/logout`;
+      try { await fetch(url, { method: "POST", credentials: "same-origin" }); } catch {}
+      setNavLoggedOut();
+    });
+  }
+
+  function setNavLoggedOut() {
+    const wrap = document.getElementById("authNavWrap");
+    if (!wrap) return;
+    wrap.innerHTML = `<button class="btn btn-sm btn-primary" id="authNavBtn" type="button">Daxil ol / Qeydiyyat</button>`;
+    document.getElementById("authNavBtn")?.addEventListener("click", openModal);
+  }
+
+  /* ---- Close dropdown on outside click ---- */
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#userNavRoot")) {
+      const dd = document.getElementById("userNavDropdown");
+      if (dd) dd.style.display = "none";
+    }
+  });
+
+  /* ---- Modal open/close ---- */
+  function openModal() {
+    const m = document.getElementById("authModal");
+    if (!m) return;
+    m.classList.add("open");
+    document.body.style.overflow = "hidden";
+    goToRoleStep();
+  }
+
+  function closeModal() {
+    const m = document.getElementById("authModal");
+    if (!m) return;
+    m.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  /* ---- Step navigation ---- */
+  function goToRoleStep() {
+    _role = null;
+    _mode = "login";
+    document.getElementById("authStepRole").style.display = "";
+    document.getElementById("authStepForm").style.display = "none";
+    clearNotes();
+  }
+
+  function goToFormStep(role) {
+    _role = role;
+    document.getElementById("authStepRole").style.display = "none";
+    document.getElementById("authStepForm").style.display = "";
+
+    const hdr = document.getElementById("authRoleHeader");
+    if (hdr) {
+      const isStudent = role === "student";
+      const icon = isStudent
+        ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`
+        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
+      hdr.innerHTML = `<span class="auth-role-pill ${isStudent ? "student" : "owner"}">${icon} ${isStudent ? "Tələbə" : "Ev sahibi"}</span>`;
+    }
+    switchMode("login");
+  }
+
+  function switchMode(mode) {
+    _mode = mode;
+    document.querySelectorAll(".auth-tab").forEach(t => t.classList.toggle("active", t.dataset.authMode === mode));
+    const lf = document.getElementById("authLoginForm");
+    const sf = document.getElementById("authRegisterStudent");
+    const pf = document.getElementById("authRegisterProvider");
+    if (lf) lf.style.display = mode === "login" ? "" : "none";
+    if (sf) sf.style.display = mode === "register" && _role === "student" ? "" : "none";
+    if (pf) pf.style.display = mode === "register" && _role === "provider" ? "" : "none";
+    clearNotes();
+  }
+
+  function clearNotes() {
+    ["authLoginNote", "authRegStudentNote", "authRegProviderNote"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = ""; }
+    });
+  }
+
+  function setNote(id, text, ok = false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = ok ? "var(--success)" : "var(--danger)";
+  }
+
+  /* ---- API: Login ---- */
+  async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById("authLoginEmail")?.value.trim();
+    const password = document.getElementById("authLoginPassword")?.value;
+    const endpoint = `${API_URL}/${_role === "student" ? "students" : "providers"}/login`;
+    setNote("authLoginNote", "Gözləyin...", true);
+    try {
+      const r = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email, password }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Xəta baş verdi");
+      setNote("authLoginNote", "Uğurlu giriş! ✓", true);
+      setTimeout(() => {
+        closeModal();
+        setNavLoggedIn(_role, d.name || d.full_name || email);
+      }, 600);
+    } catch (err) { setNote("authLoginNote", err.message); }
+  }
+
+  /* ---- API: Student register ---- */
+  async function handleRegStudent(e) {
+    e.preventDefault();
+    const f = e.currentTarget;
+    const fullName = f.querySelector("[name=fullName]").value.trim();
+    const phone = f.querySelector("[name=phone]").value.trim();
+    const email = f.querySelector("[name=email]").value.trim();
+    const university = f.querySelector("[name=university]").value;
+    const password = f.querySelector("[name=password]").value;
+    const fileInput = f.querySelector("[name=document]");
+    const note = "authRegStudentNote";
+
+    if (!fullName || !email || !university || !password) return setNote(note, "Bütün məcburi sahələri doldurun");
+    if (password.length < 8) return setNote(note, "Şifrə minimum 8 simvol olmalıdır");
+
+    let docPayload = null;
+    if (fileInput && fileInput.files[0]) {
+      setNote(note, "Fayl hazırlanır...", true);
+      docPayload = await fileToPayload(fileInput.files[0]).catch(() => null);
+    }
+    if (!docPayload) return setNote(note, "Tələbə sənədini əlavə edin (PDF / şəkil)");
+
+    setNote(note, "Qeydiyyat edilir...", true);
+    try {
+      const r = await fetch(`${API_URL}/students/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ fullName, phone, email, university, password, document: docPayload }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Xəta baş verdi");
+      setNote(note, "Qeydiyyat uğurludur! Admin təsdiqlədikdən sonra daxil ola bilərsiniz. ✓", true);
+      f.reset();
+    } catch (err) { setNote(note, err.message); }
+  }
+
+  /* ---- API: Provider register ---- */
+  async function handleRegProvider(e) {
+    e.preventDefault();
+    const f = e.currentTarget;
+    const fullName = f.querySelector("[name=fullName]").value.trim();
+    const phone = f.querySelector("[name=phone]").value.trim();
+    const email = f.querySelector("[name=email]").value.trim();
+    const password = f.querySelector("[name=password]").value;
+    const providerType = f.querySelector("[name=providerType]").value;
+    const companyName = f.querySelector("[name=companyName]").value.trim();
+    const fileInput = f.querySelector("[name=document]");
+    const note = "authRegProviderNote";
+
+    if (!fullName || !phone || !email || !password) return setNote(note, "Bütün məcburi sahələri doldurun");
+    if (password.length < 8) return setNote(note, "Şifrə minimum 8 simvol olmalıdır");
+
+    let docPayload = null;
+    if (fileInput && fileInput.files[0]) {
+      setNote(note, "Fayl hazırlanır...", true);
+      docPayload = await fileToPayload(fileInput.files[0]).catch(() => null);
+    }
+    if (!docPayload) return setNote(note, "Şəxsiyyət sənədini əlavə edin");
+
+    setNote(note, "Qeydiyyat edilir...", true);
+    try {
+      const r = await fetch(`${API_URL}/providers/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ fullName, phone, email, password, providerType, companyName, document: docPayload }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Xəta baş verdi");
+      setNote(note, "Qeydiyyat uğurludur! Admin təsdiqlədikdən sonra daxil ola bilərsiniz. ✓", true);
+      f.reset();
+    } catch (err) { setNote(note, err.message); }
+  }
+
+  /* ---- Event bindings ---- */
+  document.getElementById("authModalClose")?.addEventListener("click", closeModal);
+  document.getElementById("authModalOverlay")?.addEventListener("click", closeModal);
+  document.getElementById("authBackBtn")?.addEventListener("click", goToRoleStep);
+
+  document.querySelectorAll("[data-role]").forEach(btn => {
+    btn.addEventListener("click", () => goToFormStep(btn.dataset.role));
+  });
+
+  document.querySelectorAll(".auth-tab").forEach(tab => {
+    tab.addEventListener("click", () => switchMode(tab.dataset.authMode));
+  });
+
+  document.getElementById("authLoginForm")?.addEventListener("submit", handleLogin);
+  document.getElementById("authRegisterStudent")?.addEventListener("submit", handleRegStudent);
+  document.getElementById("authRegisterProvider")?.addEventListener("submit", handleRegProvider);
+
+  // Password eye toggle
+  document.getElementById("authPassEye")?.addEventListener("click", () => {
+    const inp = document.getElementById("authLoginPassword");
+    if (!inp) return;
+    inp.type = inp.type === "password" ? "text" : "password";
+  });
+
+  // Close on Escape (supplement the global handler)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("authModal")?.classList.contains("open")) {
+      closeModal();
+    }
+  });
+
+  /* ---- Boot ---- */
+  checkSession();
 })();

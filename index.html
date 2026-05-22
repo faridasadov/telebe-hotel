@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="az" data-theme="light">
+<html lang="az">
   <head>
     <meta charset="utf-8" />
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light");</script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" data-i18n="meta.description" content="Tələbələr üçün yoxlanılmış yaşayış rezervasiya platforması" />
     <meta name="robots" content="index, follow" />
@@ -31,7 +32,7 @@
     <header class="header">
       <div class="container header-inner">
         <a class="logo" href="#home" aria-label="StudentStay">
-          <span class="logo-mark">S</span>
+          <span class="logo-mark" id="themeToggle" title="Tema dəyiş" role="button" tabindex="0" aria-label="Tema dəyiş">S</span>
           <span class="logo-text">StudentStay</span>
         </a>
 
@@ -43,37 +44,29 @@
           <a href="#places" data-i18n="nav.places">Yaşayış yerləri</a>
           <a href="#how" data-i18n="nav.how">Necə işləyir</a>
           <a href="#features" data-i18n="nav.features">Üstünlüklər</a>
-          <a href="#booking" data-i18n="nav.booking">Rezervasiya</a>
+          <a href="student.html" data-i18n="nav.booking">Rezervasiya</a>
           <a href="#providers" data-i18n="nav.providers">Ev sahibləri</a>
           <a href="#contact" data-i18n="nav.contact">Əlaqə</a>
         </nav>
 
         <div class="header-actions">
-          <a class="btn btn-sm" href="student.html">Tələbə: daxil ol və qeydiyyat</a>
-          <a class="btn btn-sm" href="owner-login.html">Elan sahibi kabineti</a>
-
           <select id="langSwitcher" class="lang-switcher" aria-label="Language">
             <option value="az">🇦🇿 AZ</option>
             <option value="ru">🇷🇺 RU</option>
             <option value="en">🇬🇧 EN</option>
           </select>
-
-          <button id="themeToggle" class="icon-btn" aria-label="Toggle theme" title="Theme">
-            <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-            <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          </button>
-
-          <a class="btn btn-primary btn-sm" href="#booking" data-i18n="cta.start">Başla</a>
+          <div class="auth-nav-wrap" id="authNavWrap">
+            <button class="btn btn-sm btn-primary" id="authNavBtn" type="button">Daxil ol / Qeydiyyat</button>
+          </div>
         </div>
       </div>
       <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
         <a href="#places" data-i18n="nav.places">Yaşayış yerləri</a>
         <a href="#how" data-i18n="nav.how">Necə işləyir</a>
         <a href="#features" data-i18n="nav.features">Üstünlüklər</a>
-        <a href="#booking" data-i18n="nav.booking">Rezervasiya</a>
+        <a href="student.html" data-i18n="nav.booking">Rezervasiya</a>
         <a href="#providers" data-i18n="nav.providers">Ev sahibləri</a>
-        <a href="student.html">Tələbə: daxil ol və qeydiyyat</a>
-        <a href="owner-login.html">Elan sahibi kabineti</a>
+        <a href="auth.html">Daxil ol / Qeydiyyat</a>
       </nav>
     </header>
 
@@ -178,126 +171,195 @@
           </header>
 
           <div class="catalog">
-            <aside class="filters" aria-label="Filters">
+            <aside class="filters" aria-label="Filters" id="filterPanel">
               <div class="filters-head">
-                <h3 data-i18n="filters.title">Filtrlər</h3>
-                <button type="button" class="btn-text" id="resetFilters" data-i18n="filters.reset">Sıfırla</button>
+                <h3>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;opacity:.7"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  <span data-i18n="filters.title">Filtrlər</span>
+                  <span class="filter-badge" id="filterBadge" style="display:none">0</span>
+                </h3>
+                <button type="button" class="btn-text filter-reset-btn" id="resetFilters" data-i18n="filters.reset">Sıfırla</button>
               </div>
 
-              <label class="field">
-                <span data-i18n="filters.city">Şəhər</span>
-                <select id="cityFilter">
-                  <option value="all" data-i18n="opt.all">Hamısı</option>
-                  <option value="baku" data-i18n="city.baku">Bakı</option>
-                  <option value="ganja" data-i18n="city.ganja">Gəncə</option>
-                  <option value="sumgayit" data-i18n="city.sumgayit">Sumqayıt</option>
-                </select>
-              </label>
+              <!-- Active filter chips -->
+              <div id="activeFilterChips" class="active-chips" style="display:none"></div>
 
-              <label class="field">
-                <span data-i18n="filters.type">Obyekt tipi</span>
-                <select id="typeFilter">
-                  <option value="all" data-i18n="opt.all">Hamısı</option>
-                  <option value="hostel" data-i18n="opt.hostel">Yataqxana</option>
-                  <option value="apartment" data-i18n="opt.apartment">Kirayə ev</option>
-                  <option value="hotel" data-i18n="opt.hotel">Hotel</option>
-                </select>
-              </label>
+              <!-- Group: Məkan -->
+              <details class="filter-group" open>
+                <summary class="filter-group-head">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Məkan
+                  <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <div class="filter-group-body">
+                  <label class="field">
+                    <span data-i18n="filters.city">Şəhər</span>
+                    <select id="cityFilter">
+                      <option value="all" data-i18n="opt.all">Hamısı</option>
+                      <option value="baku" data-i18n="city.baku">Bakı</option>
+                      <option value="ganja" data-i18n="city.ganja">Gəncə</option>
+                      <option value="sumgayit" data-i18n="city.sumgayit">Sumqayıt</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span data-i18n="filters.type">Obyekt tipi</span>
+                    <select id="typeFilter">
+                      <option value="all" data-i18n="opt.all">Hamısı</option>
+                      <option value="hostel" data-i18n="opt.hostel">Yataqxana</option>
+                      <option value="apartment" data-i18n="opt.apartment">Kirayə ev</option>
+                      <option value="hotel" data-i18n="opt.hotel">Hotel</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span data-i18n="filters.gender">Uyğunluq</span>
+                    <select id="genderFilter">
+                      <option value="all" data-i18n="opt.all">Hamısı</option>
+                      <option value="female" data-i18n="opt.femaleOnly">Qız üçün</option>
+                      <option value="male" data-i18n="opt.maleOnly">Oğlan üçün</option>
+                      <option value="mixed" data-i18n="opt.mixed">Qarışıq</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span data-i18n="filters.university">Universitet</span>
+                    <select id="universityFilter">
+                      <option value="all" data-i18n="opt.all">Hamısı</option>
+                      <option value="BDU">BDU — Bakı Dövlət Univ.</option>
+                      <option value="ADA">ADA Universiteti</option>
+                      <option value="ASOA">ASOA — Neft &amp; Sənaye</option>
+                      <option value="UNEC">UNEC — İqtisad Univ.</option>
+                      <option value="AzMİU">AzMİU — Memarlıq</option>
+                      <option value="GDU">GDU — Gəncə Dövlət Univ.</option>
+                      <option value="SDU">SDU — Sumqayıt Dövlət</option>
+                      <option value="AzTU">AzTU — Texniki Univ.</option>
+                    </select>
+                  </label>
+                </div>
+              </details>
 
-              <label class="field">
-                <span data-i18n="filters.gender">Uyğunluq</span>
-                <select id="genderFilter">
-                  <option value="all" data-i18n="opt.all">Hamısı</option>
-                  <option value="female" data-i18n="opt.femaleOnly">Qız üçün</option>
-                  <option value="male" data-i18n="opt.maleOnly">Oğlan üçün</option>
-                  <option value="mixed" data-i18n="opt.mixed">Qarışıq</option>
-                </select>
-              </label>
+              <!-- Group: Qiymət -->
+              <details class="filter-group" open>
+                <summary class="filter-group-head">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  Qiymət aralığı
+                  <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <div class="filter-group-body">
+                  <div class="price-range-display">
+                    <span class="price-badge"><b id="minPriceValue">150</b> AZN</span>
+                    <div class="price-range-track"></div>
+                    <span class="price-badge"><b id="priceValue">900</b> AZN</span>
+                  </div>
+                  <div class="range-stack">
+                    <input id="minPriceFilter" type="range" min="150" max="900" value="150" step="10" aria-label="Minimum qiymət" />
+                    <input id="priceFilter" type="range" min="150" max="900" value="900" step="10" aria-label="Maksimum qiymət" />
+                  </div>
+                  <div class="range-labels">
+                    <span>150 AZN</span><span>900 AZN</span>
+                  </div>
+                </div>
+              </details>
 
-              <label class="field">
-                <span data-i18n="filters.university">Universitet</span>
-                <select id="universityFilter">
-                  <option value="all" data-i18n="opt.all">Hamısı</option>
-                  <option value="BDU">BDU — Bakı Dövlət Universiteti</option>
-                  <option value="ADA">ADA Universiteti</option>
-                  <option value="ASOA">ASOA — Neft və Sənaye Universiteti</option>
-                  <option value="UNEC">UNEC — İqtisad Universiteti</option>
-                  <option value="AzMİU">AzMİU — Memarlıq və İnşaat</option>
-                  <option value="GDU">GDU — Gəncə Dövlət Universiteti</option>
-                  <option value="SDU">SDU — Sumqayıt Dövlət Universiteti</option>
-                  <option value="AzTU">AzTU — Texniki Universitet</option>
-                </select>
-              </label>
+              <!-- Group: Şərait -->
+              <details class="filter-group">
+                <summary class="filter-group-head">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                  Şərait
+                  <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <div class="filter-group-body">
+                  <label class="toggle-row">
+                    <span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                      Wi-Fi mütləqdir
+                    </span>
+                    <label class="toggle-switch"><input id="wifiFilter" type="checkbox" /><span class="toggle-track"></span></label>
+                  </label>
+                  <label class="toggle-row">
+                    <span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                      Kommunal daxildir
+                    </span>
+                    <label class="toggle-switch"><input id="utilityFilter" type="checkbox" /><span class="toggle-track"></span></label>
+                  </label>
+                  <label class="toggle-row">
+                    <span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                      Kondisioner
+                    </span>
+                    <label class="toggle-switch"><input id="acFilter" type="checkbox" /><span class="toggle-track"></span></label>
+                  </label>
+                  <label class="toggle-row">
+                    <span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                      İstilik sistemi
+                    </span>
+                    <label class="toggle-switch"><input id="heatingFilter" type="checkbox" /><span class="toggle-track"></span></label>
+                  </label>
+                  <label class="toggle-row">
+                    <span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z"/></svg>
+                      Yalnız favorilərim
+                    </span>
+                    <label class="toggle-switch"><input id="favoritesFilter" type="checkbox" /><span class="toggle-track"></span></label>
+                  </label>
+                </div>
+              </details>
 
-              <label class="field">
-                <span>Minimum qiymət · <b id="minPriceValue">150</b> AZN</span>
-                <input id="minPriceFilter" type="range" min="150" max="900" value="150" step="10" />
-              </label>
+              <!-- Group: Ətraflı -->
+              <details class="filter-group">
+                <summary class="filter-group-head">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m6.36-3.64l-1.41-1.41M5.34 18.66l1.41-1.41M2 12h2m18 0h-2"/></svg>
+                  Ətraflı parametrlər
+                  <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <div class="filter-group-body">
+                  <label class="field">
+                    <span data-i18n="filters.rooms">Minimum otaq sayı</span>
+                    <select id="roomFilter">
+                      <option value="all" data-i18n="opt.all">Hamısı</option>
+                      <option value="1">1+</option>
+                      <option value="2">2+</option>
+                      <option value="3">3+</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span data-i18n="filters.metro">Metroya məsafə</span>
+                    <select id="metroFilter">
+                      <option value="" data-i18n="opt.all">Hamısı</option>
+                      <option value="5">≤ 5 dəq</option>
+                      <option value="10">≤ 10 dəq</option>
+                      <option value="15">≤ 15 dəq</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span data-i18n="filters.contract">Min. müqavilə</span>
+                    <select id="contractFilter">
+                      <option value="" data-i18n="opt.all">Hamısı</option>
+                      <option value="1">1 ay</option>
+                      <option value="3">3 ay</option>
+                      <option value="6">6 ay</option>
+                      <option value="12">12 ay</option>
+                    </select>
+                  </label>
+                </div>
+              </details>
 
-              <label class="field">
-                <span><span data-i18n="filters.price">Maksimum qiymət</span> · <b id="priceValue">900</b> AZN</span>
-                <input id="priceFilter" type="range" min="150" max="900" value="900" step="10" />
-              </label>
-
-              <label class="checkbox">
-                <input id="wifiFilter" type="checkbox" />
-                <span data-i18n="filters.wifi">Wi-Fi mütləqdir</span>
-              </label>
-
-              <label class="checkbox">
-                <input id="utilityFilter" type="checkbox" />
-                <span data-i18n="filters.utilities">Kommunal daxildir</span>
-              </label>
-
-              <label>
-                <span data-i18n="filters.rooms">Minimum otaq sayı</span>
-                <select id="roomFilter">
-                  <option value="all" data-i18n="opt.all">Hamısı</option>
-                  <option value="1">1+</option>
-                  <option value="2">2+</option>
-                  <option value="3">3+</option>
-                </select>
-              </label>
-
-              <label>
-                <span data-i18n="filters.metro">Metroya maksimum məsafə</span>
-                <select id="metroFilter">
-                  <option value="" data-i18n="opt.all">Hamısı</option>
-                  <option value="5">5 dəq</option>
-                  <option value="10">10 dəq</option>
-                  <option value="15">15 dəq</option>
-                </select>
-              </label>
-
-              <label>
-                <span data-i18n="filters.contract">Minimum müqavilə müddəti</span>
-                <select id="contractFilter">
-                  <option value="" data-i18n="opt.all">Hamısı</option>
-                  <option value="1">1 ay</option>
-                  <option value="3">3 ay</option>
-                  <option value="6">6 ay</option>
-                  <option value="12">12 ay</option>
-                </select>
-              </label>
-
-              <label class="checkbox">
-                <input id="acFilter" type="checkbox" />
-                <span data-i18n="filters.ac">Kondisioner</span>
-              </label>
-
-              <label class="checkbox">
-                <input id="heatingFilter" type="checkbox" />
-                <span data-i18n="filters.heating">İstilik sistemi</span>
-              </label>
+              <!-- Result count preview -->
+              <div class="filter-result-preview" id="filterResultPreview">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <span id="filterResultCount">Yüklənir...</span>
+              </div>
             </aside>
 
             <div class="results">
               <div class="results-top">
                 <span id="resultCount" data-i18n-template="results.count" data-count="0">0 obyekt</span>
+                <input id="placeSearch" type="search" placeholder="Elan adı, ünvan..." aria-label="Axtar" style="padding:8px 14px;border-radius:var(--r-pill);border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text);font-size:var(--fs-sm);outline:none;flex:1;min-width:160px;max-width:260px">
                 <select id="sortFilter" aria-label="Sort">
                   <option value="recommended" data-i18n="sort.recommended">Tövsiyə olunan</option>
                   <option value="price" data-i18n="sort.price">Qiymət (aşağıdan)</option>
                   <option value="vacancy" data-i18n="sort.vacancy">Boş yer (çoxdan)</option>
+                  <option value="rating">Reytinq (yüksəkdən)</option>
                 </select>
               </div>
               <div id="placeGrid" class="place-grid"></div>
@@ -311,24 +373,6 @@
               <div id="mapCanvas" class="map-canvas"></div>
             </aside>
           </div>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container provider-band">
-          <div>
-            <span class="eyebrow">Status izləmə</span>
-            <h2>Mənim rezervasiyamı yoxla</h2>
-            <p>Rezervasiya göndərdikdən sonra verilən Tracking ID ilə statusu login olmadan yoxlayın.</p>
-          </div>
-          <form id="trackingForm" class="search-card" style="max-width:520px">
-            <label>
-              <span>Tracking ID</span>
-              <input name="code" type="text" placeholder="SS-..." required>
-            </label>
-            <button class="btn btn-primary btn-lg" type="submit">Yoxla</button>
-            <p class="form-note" id="trackingNote" role="status"></p>
-          </form>
         </div>
       </section>
 
@@ -392,81 +436,45 @@
         </div>
       </section>
 
-      <!-- ============ BOOKING ============ -->
+      <!-- ============ BOOKING CTA ============ -->
       <section id="booking" class="section section-cta">
-        <div class="container booking-wrap">
-          <header class="section-head center">
-            <span class="eyebrow light" data-i18n="booking.eyebrow">Onlayn müraciət</span>
-            <h2 data-i18n="booking.title">Rezervasiya forması</h2>
-            <p data-i18n="booking.subtitle">Tələbə sənədinizi yükləyin. Admin təsdiqindən sonra yer sizə ayrılır.</p>
-          </header>
-
-          <form id="bookingForm" class="booking-form">
-            <label class="field">
-              <span data-i18n="form.fullName">Ad və soyad</span>
-              <input name="fullName" type="text" required data-i18n-placeholder="form.fullName.ph" placeholder="Aysel Məmmədova" />
-            </label>
-            <label class="field">
-              <span data-i18n="form.phone">Telefon</span>
-              <input name="phone" type="tel" required placeholder="+994 XX XXX XX XX" />
-            </label>
-            <label class="field">
-              <span data-i18n="form.email">E-poçt</span>
-              <input name="email" type="email" required placeholder="email@example.com" />
-            </label>
-            <label class="field">
-              <span data-i18n="form.university">Universitet</span>
-              <input name="university" type="text" required data-i18n-placeholder="form.university.ph" placeholder="Universitetin adı" />
-            </label>
-            <label class="field">
-              <span data-i18n="form.faculty">Fakültə / kurs</span>
-              <input name="faculty" type="text" data-i18n-placeholder="form.faculty.ph" placeholder="Fakültə, kurs" />
-            </label>
-            <label class="field">
-              <span data-i18n="form.gender">Cinsiyyət</span>
-              <select name="gender" required>
-                <option value="" data-i18n="opt.select">Seçin</option>
-                <option value="female" data-i18n="opt.female">Qız</option>
-                <option value="male" data-i18n="opt.male">Oğlan</option>
-              </select>
-            </label>
-            <label class="field">
-              <span data-i18n="form.moveIn">Giriş tarixi</span>
-              <input name="moveIn" type="date" required />
-            </label>
-            <label class="field">
-              <span data-i18n="form.duration">Qalma müddəti</span>
-              <select name="duration" required>
-                <option value="" data-i18n="opt.select">Seçin</option>
-                <option value="1" data-i18n="opt.dur1">1 ay</option>
-                <option value="3" data-i18n="opt.dur3">3 ay</option>
-                <option value="6" data-i18n="opt.dur6">6 ay</option>
-                <option value="12" data-i18n="opt.dur12">12 ay</option>
-              </select>
-            </label>
-            <label class="field">
-              <span data-i18n="form.document">Tələbə sənədi (PDF / şəkil)</span>
-              <input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" />
-            </label>
-            <label class="field wide">
-              <span data-i18n="form.note">Əlavə qeyd</span>
-              <textarea name="note" rows="4" data-i18n-placeholder="form.note.ph" placeholder="Xüsusi tələblərinizi yazın..."></textarea>
-            </label>
-            <button class="btn btn-primary btn-lg wide" type="submit" data-i18n="form.submit">Müraciət göndər</button>
-            <p class="form-note wide" id="formNote" role="status"></p>
-          </form>
+        <div class="container" style="text-align:center;padding:var(--sp-8) var(--sp-5)">
+          <span class="eyebrow light">Onlayn müraciət</span>
+          <h2 style="color:#fff;margin:var(--sp-3) 0 var(--sp-2)">Rezervasiya etmək istəyirsiniz?</h2>
+          <p style="color:rgba(255,255,255,0.78);font-size:var(--fs-md);margin:0 0 var(--sp-5);max-width:520px;margin-inline:auto">Tələbə kabinetinizə daxil olun, elanı seçin və müraciəti oradan göndərin. Statusu da kabinentdən izləyə bilərsiniz.</p>
+          <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+            <a class="btn btn-primary btn-lg" href="student.html?tab=apply">Müraciət et →</a>
+            <a class="btn btn-lg" href="student.html" style="background:rgba(255,255,255,0.12);color:#fff;border:1.5px solid rgba(255,255,255,0.28)">Kabinetə giriş</a>
+          </div>
         </div>
       </section>
 
       <!-- ============ PROVIDERS ============ -->
       <section id="providers" class="section">
         <div class="container provider-band">
-          <div>
+          <div class="provider-band-text">
             <span class="eyebrow" data-i18n="providers.eyebrow">Ev sahibləri və yataqxanalar</span>
             <h2 data-i18n="providers.title">Obyektinizi yalnız yoxlamadan sonra yayımlayın</h2>
-            <p data-i18n="providers.subtitle">Qeydiyyat üçün şəxsiyyət və əlaqə məlumatları tələb olunur. Admin təsdiqindən sonra paneliniz açılır və göndərdiyiniz hər elan ayrıca yoxlanılır.</p>
+            <p data-i18n="providers.subtitle">Qeydiyyat üçün şəxsiyyət və əlaqə məlumatları tələb olunur. Admin təsdiqindən sonra paneliniz açılır.</p>
+            <div class="provider-band-checks">
+              <span class="provider-band-check">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                Pulsuz qeydiyyat — komissiya yoxdur
+              </span>
+              <span class="provider-band-check">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                Rezervasiyaları idarə et, tələbələrlə əlaqə saxla
+              </span>
+              <span class="provider-band-check">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                Hər elan admin tərəfindən ayrıca yoxlanılır
+              </span>
+            </div>
           </div>
-          <a class="btn btn-primary btn-lg" href="owner-login.html" data-i18n="providers.cta">Elan yerləşdirmək üçün qeydiyyat</a>
+          <div class="provider-band-cta">
+            <a class="btn btn-primary btn-lg" href="owner-login.html" data-i18n="providers.cta">Elan yerləşdirmək üçün qeydiyyat</a>
+            <a href="owner-login.html" style="font-size:13px;color:var(--text-muted);font-weight:600;text-decoration:underline;text-underline-offset:3px">Artıq hesabınız var? Daxil ol →</a>
+          </div>
         </div>
       </section>
 
@@ -569,6 +577,127 @@
             <label class="field wide"><span>Səbəb</span><textarea name="reason" rows="4" required placeholder="Niyə bu elanı şübhəli hesab edirsiniz?"></textarea></label>
             <button class="btn btn-primary btn-lg wide" type="submit">Bildir</button>
             <p class="form-note wide" id="reportNote" role="status"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ AUTH MODAL ============ -->
+    <div id="authModal" class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+      <div class="auth-modal-overlay" id="authModalOverlay"></div>
+      <div class="auth-modal-panel">
+        <button class="auth-modal-close" id="authModalClose" aria-label="Bağla" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+
+        <!-- Step 0: role selection -->
+        <div id="authStepRole">
+          <div style="text-align:center;margin-bottom:20px">
+            <span class="logo-mark" style="width:48px;height:48px;font-size:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;background:linear-gradient(135deg,var(--brand),var(--accent-2));color:#fff;font-weight:900;box-shadow:0 8px 24px rgba(13,148,136,.3)">S</span>
+          </div>
+          <h2 id="authModalTitle" style="text-align:center;font-size:22px;font-weight:800;margin:0 0 6px">Xoş gəldiniz</h2>
+          <p style="text-align:center;color:var(--text-muted);font-size:14px;margin:0 0 24px">Hesab növünüzü seçin</p>
+          <div class="auth-role-grid">
+            <button class="auth-role-card" type="button" data-role="student">
+              <div class="auth-role-icon student">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+              </div>
+              <strong>Tələbə</strong>
+              <span>Yaşayış tap, rezervasiya et</span>
+              <span class="auth-role-arrow">→</span>
+            </button>
+            <button class="auth-role-card" type="button" data-role="provider">
+              <div class="auth-role-icon owner">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+              <strong>Ev sahibi</strong>
+              <span>Elan yerləşdir, idarə et</span>
+              <span class="auth-role-arrow">→</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 1: login / register form -->
+        <div id="authStepForm" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+            <button class="auth-back-btn" type="button" id="authBackBtn" title="Geri">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div id="authRoleHeader"></div>
+          </div>
+
+          <div class="auth-tabs">
+            <button class="auth-tab active" type="button" data-auth-mode="login">Daxil ol</button>
+            <button class="auth-tab" type="button" data-auth-mode="register">Qeydiyyat</button>
+          </div>
+
+          <!-- Shared login form -->
+          <form id="authLoginForm" class="auth-form" novalidate>
+            <label class="field">
+              <span>E-poçt</span>
+              <input type="email" id="authLoginEmail" name="email" required placeholder="email@example.com" autocomplete="email" />
+            </label>
+            <label class="field">
+              <span>Şifrə</span>
+              <div style="position:relative">
+                <input type="password" id="authLoginPassword" name="password" required placeholder="••••••••" autocomplete="current-password" style="padding-right:42px;width:100%;box-sizing:border-box" />
+                <button type="button" class="pass-eye" id="authPassEye" aria-label="Göstər">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </label>
+            <button class="btn btn-primary" type="submit" style="width:100%">Daxil ol →</button>
+            <p class="auth-note" id="authLoginNote" role="status"></p>
+          </form>
+
+          <!-- Student register -->
+          <form id="authRegisterStudent" class="auth-form" style="display:none" novalidate>
+            <label class="field"><span>Ad soyad</span><input type="text" name="fullName" required placeholder="Əli Hüseynov" /></label>
+            <label class="field"><span>E-poçt</span><input type="email" name="email" required placeholder="email@example.com" /></label>
+            <label class="field"><span>Telefon</span><input type="tel" name="phone" placeholder="+994 50 123 45 67" /></label>
+            <label class="field">
+              <span>Universitet</span>
+              <select name="university" required>
+                <option value="">Seçin...</option>
+                <option value="BDU">BDU — Bakı Dövlət Universiteti</option>
+                <option value="ADA">ADA Universiteti</option>
+                <option value="ASOA">ASOA — Neft və Sənaye</option>
+                <option value="UNEC">UNEC — İqtisad Universiteti</option>
+                <option value="AzMİU">AzMİU — Memarlıq</option>
+                <option value="GDU">GDU — Gəncə Dövlət</option>
+                <option value="SDU">SDU — Sumqayıt Dövlət</option>
+                <option value="AzTU">AzTU — Texniki Univ.</option>
+              </select>
+            </label>
+            <label class="field"><span>Şifrə <small>(min. 8 simvol)</small></span><input type="password" name="password" required placeholder="••••••••" autocomplete="new-password" /></label>
+            <label class="field">
+              <span>Tələbə sənədi <small style="color:var(--text-muted)">(PDF / şəkil)</small></span>
+              <input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png" required />
+            </label>
+            <button class="btn btn-primary" type="submit" style="width:100%">Qeydiyyat →</button>
+            <p class="auth-note" id="authRegStudentNote" role="status"></p>
+          </form>
+
+          <!-- Provider register -->
+          <form id="authRegisterProvider" class="auth-form" style="display:none" novalidate>
+            <label class="field"><span>Ad soyad</span><input type="text" name="fullName" required placeholder="Leyla Əliyeva" /></label>
+            <label class="field"><span>Şirkət adı <small style="color:var(--text-muted)">(istəyə bağlı)</small></span><input type="text" name="companyName" placeholder="Bakı Hostel LLC" /></label>
+            <label class="field">
+              <span>Növ</span>
+              <select name="providerType">
+                <option value="owner">Ev sahibi / Fərdi</option>
+                <option value="agency">Agentlik</option>
+              </select>
+            </label>
+            <label class="field"><span>E-poçt</span><input type="email" name="email" required placeholder="email@example.com" /></label>
+            <label class="field"><span>Telefon</span><input type="tel" name="phone" required placeholder="+994 50 123 45 67" /></label>
+            <label class="field"><span>Şifrə <small>(min. 8 simvol)</small></span><input type="password" name="password" required placeholder="••••••••" autocomplete="new-password" /></label>
+            <label class="field">
+              <span>Şəxsiyyət sənədi <small style="color:var(--text-muted)">(PDF / şəkil)</small></span>
+              <input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png" required />
+            </label>
+            <button class="btn btn-primary" type="submit" style="width:100%">Qeydiyyat →</button>
+            <p class="auth-note" id="authRegProviderNote" role="status"></p>
           </form>
         </div>
       </div>

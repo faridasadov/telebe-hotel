@@ -33,13 +33,32 @@ const ADMIN_SESSION_MS = 30 * 60 * 1000;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
 const loginAttempts = new Map();
+const publicPostAttempts = new Map();
 const adminSessions = new Map();
 const superAdminSessions = new Map();
+
+const PUBLIC_POST_WINDOW_MS = 15 * 60 * 1000;
+const PUBLIC_POST_MAX = 20;
+
+function isPublicPostLimited(req) {
+  const now = Date.now();
+  const key = getRateKey(req);
+  const entry = publicPostAttempts.get(key) || { count: 0, resetAt: now + PUBLIC_POST_WINDOW_MS };
+  if (entry.resetAt <= now) {
+    publicPostAttempts.set(key, { count: 1, resetAt: now + PUBLIC_POST_WINDOW_MS });
+    return false;
+  }
+  if (entry.count >= PUBLIC_POST_MAX) return true;
+  entry.count += 1;
+  publicPostAttempts.set(key, entry);
+  return false;
+}
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(LISTING_UPLOAD_DIR, { recursive: true });
 
-app.use(cors());
+const corsOrigin = process.env.CORS_ORIGIN || false;
+app.use(cors({ origin: corsOrigin, credentials: Boolean(corsOrigin) }));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -903,10 +922,127 @@ app.post('/api/students/login', (req, res) => {
   });
 });
 
+// Forgot password — student
+app.post('/api/students/forgot-password', (req, res) => {
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: 'E-poçt daxil edin' });
+  db.get("SELECT id, full_name, email FROM students WHERE email = ?", [email], (err, student) => {
+    if (err) return res.status(500).json({ error: err.message });
+    // Always respond OK to prevent email enumeration
+    if (!student) return res.json({ ok: true });
+    const resetToken = crypto.randomBytes(24).toString('hex');
+    const expiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour
+    db.run("UPDATE students SET reset_token = ?, reset_token_expires = ? WHERE id = ?",
+      [resetToken, expiry, student.id], (updateErr) => {
+        if (updateErr) return res.status(500).json({ error: updateErr.message });
+        const resetLink = `${req.headers.origin || 'http://localhost:4000'}/student.html?reset=${resetToken}`;
+        sendMail(student.email, 'StudentStay — Şifrə sıfırlama',
+          `Salam ${student.full_name || ''},\n\nŞifrənizi sıfırlamaq üçün bu linkə keçin:\n${resetLink}\n\nLink 1 saat ərzində etibarlıdır.\n\nBu sorğunu siz etməmisinizsə, bu məktubu nəzərə almayın.`);
+        res.json({ ok: true });
+      });
+  });
+});
+
+// Reset password — student
+app.post('/api/students/reset-password', (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password || String(password).length < 6)
+    return res.status(400).json({ error: 'Token və ya şifrə düzgün deyil (min 6 simvol)' });
+  db.get("SELECT id FROM students WHERE reset_token = ? AND reset_token_expires > ?",
+    [String(token), new Date().toISOString()], (err, student) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!student) return res.status(400).json({ error: 'Token etibarsız və ya müddəti bitib' });
+      hashPassword(String(password), (hashErr, hash) => {
+        if (hashErr) return res.status(500).json({ error: hashErr.message });
+        db.run("UPDATE students SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?",
+          [hash, student.id], (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: updateErr.message });
+            res.json({ ok: true });
+          });
+      });
+    });
+});
+
+// Forgot password — provider
+app.post('/api/providers/forgot-password', (req, res) => {
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: 'E-poçt daxil edin' });
+  db.get("SELECT id, full_name, email FROM providers WHERE email = ?", [email], (err, provider) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!provider) return res.json({ ok: true });
+    const resetToken = crypto.randomBytes(24).toString('hex');
+    const expiry = new Date(Date.now() + 3600000).toISOString();
+    db.run("UPDATE providers SET reset_token = ?, reset_token_expires = ? WHERE id = ?",
+      [resetToken, expiry, provider.id], (updateErr) => {
+        if (updateErr) return res.status(500).json({ error: updateErr.message });
+        const resetLink = `${req.headers.origin || 'http://localhost:4000'}/owner-login.html?reset=${resetToken}`;
+        sendMail(provider.email, 'StudentStay — Şifrə sıfırlama',
+          `Salam ${provider.full_name || ''},\n\nŞifrənizi sıfırlamaq üçün:\n${resetLink}\n\nLink 1 saat etibarlıdır.`);
+        res.json({ ok: true });
+      });
+  });
+});
+
+// Reset password — provider
+app.post('/api/providers/reset-password', (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password || String(password).length < 6)
+    return res.status(400).json({ error: 'Token və ya şifrə düzgün deyil' });
+  db.get("SELECT id FROM providers WHERE reset_token = ? AND reset_token_expires > ?",
+    [String(token), new Date().toISOString()], (err, provider) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!provider) return res.status(400).json({ error: 'Token etibarsız' });
+      hashPassword(String(password), (hashErr, hash) => {
+        if (hashErr) return res.status(500).json({ error: hashErr.message });
+        db.run("UPDATE providers SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?",
+          [hash, provider.id], (updateErr) => {
+            if (updateErr) return res.status(500).json({ error: updateErr.message });
+            res.json({ ok: true });
+          });
+      });
+    });
+});
+
 app.post('/api/students/logout', requireStudent, (req, res) => {
   db.run("UPDATE students SET session_token = NULL WHERE id = ?", [req.student.id], () => {});
   clearStudentCookie(res);
   res.json({ success: true });
+});
+
+app.delete('/api/students/account', requireStudent, (req, res) => {
+  const studentId = req.student.id;
+  const email = req.student.email;
+  db.serialize(() => {
+    db.run("UPDATE bookings SET status='Cancelled' WHERE lower(email)=lower(?) AND status='Pending'", [email]);
+    db.run("UPDATE students SET session_token=NULL, status='Cancelled', email=?, password_hash='DELETED', reset_token=NULL WHERE id=?",
+      [`deleted_${Date.now()}_${email}`, studentId], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        clearStudentCookie(res);
+        logAudit(email, 'student_account_deleted', 'student', studentId, {});
+        res.json({ ok: true });
+      });
+  });
+});
+
+// Owner stats endpoint
+app.get('/api/providers/stats', requireProvider, (req, res) => {
+  db.all(`SELECT b.status, COUNT(*) as count FROM bookings b
+          JOIN places p ON p.id = b.place_id
+          WHERE p.provider_id = ?
+          GROUP BY b.status`, [req.provider.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const stats = { Pending: 0, Approved: 0, Rejected: 0, Expired: 0, Cancelled: 0 };
+    (rows || []).forEach(r => { if (stats[r.status] !== undefined) stats[r.status] = r.count; });
+    db.all(`SELECT p.name, p.total_spots, p.free_spots, p.rating, p.review_count
+            FROM places p WHERE p.provider_id = ?`, [req.provider.id], (err2, places) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      const totalSpots = (places || []).reduce((a, p) => a + (p.total_spots || 0), 0);
+      const freeSpots = (places || []).reduce((a, p) => a + (p.free_spots || 0), 0);
+      const avgRating = places && places.length
+        ? (places.reduce((a, p) => a + (p.rating || 0), 0) / places.length).toFixed(1) : 0;
+      res.json({ bookings: stats, places: places || [], totalSpots, freeSpots, avgRating });
+    });
+  });
 });
 
 app.get('/api/students/session', requireStudent, (req, res) => {
@@ -961,7 +1097,11 @@ app.get('/api/students/bookings', requireStudent, (req, res) => {
     if (expireErr) return res.status(500).json({ error: expireErr.message });
     db.all(`SELECT b.id, b.tracking_code, b.full_name, b.email, b.university, b.faculty, b.gender,
             b.move_in, b.duration, b.status, b.note, b.admin_note, b.expires_at, b.created_at, b.updated_at,
-            p.name as place_name
+            p.name as place_name,
+            (SELECT MAX(created_at) FROM conversation_messages
+             WHERE booking_id = b.id AND sender_type = 'provider') as last_provider_msg_at,
+            (SELECT COUNT(*) FROM conversation_messages
+             WHERE booking_id = b.id AND sender_type = 'provider') as provider_msg_count
             FROM bookings b
             LEFT JOIN places p ON p.id = b.place_id
             WHERE lower(b.email) = lower(?)
@@ -1152,6 +1292,29 @@ app.get('/api/providers/bookings', requireProvider, (req, res) => {
   });
 });
 
+app.put('/api/providers/bookings/:id/status', requireProvider, (req, res) => {
+  const status = String((req.body && req.body.status) || '');
+  if (!['Approved', 'Rejected'].includes(status)) return res.status(400).json({ error: 'Yalnız Approved və ya Rejected' });
+  db.get(`SELECT b.id, b.email, b.full_name, p.name as place_name
+          FROM bookings b JOIN places p ON p.id = b.place_id
+          WHERE b.id = ? AND p.provider_id = ? AND b.status = 'Pending'`,
+    [req.params.id, req.provider.id], (err, booking) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!booking) return res.status(404).json({ error: 'Rezervasiya tapılmadı və ya artıq emal edilib' });
+    db.run("UPDATE bookings SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [status, booking.id], (updateErr) => {
+      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      logAudit(req.provider.email, `booking_${status.toLowerCase()}_by_provider`, 'booking', booking.id, {});
+      if (booking.email) {
+        const msg = status === 'Approved'
+          ? `Salam ${booking.full_name},\n"${booking.place_name}" üzrə rezervasiya müraciətiniz ev sahibi tərəfindən TƏSDİQLƏNDİ.`
+          : `Salam ${booking.full_name},\n"${booking.place_name}" üzrə rezervasiya müraciətiniz ev sahibi tərəfindən rədd edildi.`;
+        sendMail(booking.email, `StudentStay — rezervasiya ${status === 'Approved' ? 'təsdiqləndi' : 'rədd edildi'}`, msg);
+      }
+      res.json({ ok: true, status });
+    });
+  });
+});
+
 app.get('/api/providers/bookings/:id/messages', requireProvider, (req, res) => {
   db.get(`SELECT b.id
           FROM bookings b
@@ -1189,10 +1352,15 @@ app.post('/api/providers/bookings/:id/messages', requireProvider, (req, res) => 
 
 // ---- List places ----
 app.get('/api/places', (req, res) => {
-  const { city, type, gender, minPrice, maxPrice, wifi, utilities, university, rooms, maxMetro, ac, heating, minContract } = req.query;
+  const { city, type, gender, minPrice, maxPrice, wifi, utilities, university, rooms, maxMetro, ac, heating, minContract, q } = req.query;
   let query = "SELECT * FROM places WHERE 1=1";
   const params = [];
 
+  if (q && q.trim()) {
+    const like = `%${q.trim()}%`;
+    query += " AND (name LIKE ? OR address LIKE ? OR description LIKE ?)";
+    params.push(like, like, like);
+  }
   if (city && city !== 'all') { query += " AND city = ?"; params.push(city); }
   if (type && type !== 'all') { query += " AND type = ?"; params.push(type); }
   if (gender && gender !== 'all') { query += " AND gender = ?"; params.push(gender); }
@@ -1240,8 +1408,10 @@ app.get('/api/places/:id', (req, res) => {
 
 // ---- Post a review ----
 app.post('/api/places/:id/reviews', (req, res) => {
+  if (isPublicPostLimited(req)) return res.status(429).json({ error: 'Çox cəhd edildi. Bir az sonra yenidən yoxlayın.' });
   const placeId = parseInt(req.params.id);
-  const { author_name, rating, comment, university } = req.body;
+  const { author_name, comment, university } = req.body;
+  const rating = parseInt(req.body.rating, 10);
 
   if (!author_name || !rating || rating < 1 || rating > 5) {
     return res.status(400).json({ error: 'Invalid review' });
@@ -1264,6 +1434,7 @@ app.post('/api/places/:id/reviews', (req, res) => {
 
 // ---- Submit booking ----
 app.post('/api/bookings', (req, res) => {
+  if (isPublicPostLimited(req)) return res.status(429).json({ error: 'Çox cəhd edildi. Bir az sonra yenidən yoxlayın.' });
   const { fullName, phone, email, university, faculty, gender, moveIn, duration, placeId, note, document } = req.body;
   if (!fullName || !phone || !email || !university || !gender || !moveIn || !duration) {
     return res.status(400).json({ error: 'Zəruri sahələr doldurulmayıb' });
@@ -1301,6 +1472,7 @@ app.post('/api/bookings', (req, res) => {
 });
 
 app.post('/api/reports', (req, res) => {
+  if (isPublicPostLimited(req)) return res.status(429).json({ error: 'Çox cəhd edildi. Bir az sonra yenidən yoxlayın.' });
   const { placeId, reporterName, reporterContact, reason } = req.body || {};
   if (!placeId || !reason || String(reason).trim().length < 8) {
     return res.status(400).json({ error: 'Elan və ən azı 8 simvolluq səbəb zəruridir' });

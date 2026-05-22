@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="utf-8" />
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light");</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudentStay — Daxil ol / Qeydiyyat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260521-auth" />
+    <style>
+      body { min-height: 100vh; }
+
+      .auth-wrap {
+        min-height: calc(100vh - var(--header-h));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 20px;
+      }
+
+      .auth-inner {
+        width: 100%;
+        max-width: 680px;
+        text-align: center;
+      }
+
+      .auth-title {
+        font-size: clamp(28px, 5vw, 40px);
+        font-weight: 900;
+        margin: 0 0 8px;
+        letter-spacing: -.02em;
+      }
+
+      .auth-sub {
+        color: var(--text-muted);
+        font-size: var(--fs-md);
+        margin: 0 0 44px;
+      }
+
+      .role-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      .role-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+        background: var(--bg-card);
+        border: 2px solid var(--border);
+        border-radius: var(--r-xl);
+        padding: 32px 28px;
+        text-decoration: none;
+        color: var(--text);
+        transition: border-color .18s, box-shadow .18s, transform .18s;
+        cursor: pointer;
+      }
+
+      .role-card:hover {
+        border-color: var(--brand);
+        box-shadow: 0 8px 32px rgba(13,148,136,.18);
+        transform: translateY(-3px);
+      }
+
+      .role-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: var(--r-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .role-icon.student {
+        background: linear-gradient(135deg, rgba(13,148,136,.15), rgba(37,99,235,.1));
+        color: var(--brand);
+      }
+
+      .role-icon.owner {
+        background: linear-gradient(135deg, rgba(245,158,11,.15), rgba(239,68,68,.1));
+        color: var(--accent);
+      }
+
+      .role-card-title {
+        font-size: var(--fs-xl);
+        font-weight: 800;
+        margin: 0;
+      }
+
+      .role-card-desc {
+        font-size: var(--fs-sm);
+        color: var(--text-muted);
+        line-height: 1.55;
+        margin: 0;
+        text-align: left;
+      }
+
+      .role-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: auto;
+        padding-top: 8px;
+      }
+
+      .role-btn {
+        padding: 9px 18px;
+        border-radius: var(--r-pill);
+        font-size: 13px;
+        font-weight: 700;
+        border: 1.5px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        transition: all .15s;
+        text-decoration: none;
+      }
+
+      .role-btn.primary {
+        background: linear-gradient(135deg, var(--brand), var(--accent-2));
+        border-color: transparent;
+        color: #fff;
+      }
+
+      .role-btn:hover { opacity: .85; }
+
+      @media (max-width: 600px) {
+        .role-grid { grid-template-columns: 1fr; }
+        .auth-sub { margin-bottom: 28px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header-inner">
+        <a class="logo" href="index.html">
+          <span class="logo-mark">S</span>
+          <span class="logo-text">StudentStay</span>
+        </a>
+        <nav class="nav">
+          <a href="index.html">Ana səhifə</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="auth-wrap">
+      <div class="auth-inner">
+        <h1 class="auth-title">Hesabınıza daxil olun</h1>
+        <p class="auth-sub">Hansı hesab tipi ilə davam etmək istəyirsiniz?</p>
+
+        <div class="role-grid">
+
+          <!-- Student -->
+          <div class="role-card">
+            <div class="role-icon student">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+              </svg>
+            </div>
+            <p class="role-card-title">Tələbə</p>
+            <p class="role-card-desc">Yataqxana və kirayə evlərə baxın, rezervasiya edin, status izləyin.</p>
+            <div class="role-actions">
+              <a class="role-btn primary" href="student.html">Daxil ol</a>
+              <a class="role-btn" href="student.html?tab=register">Qeydiyyat</a>
+            </div>
+          </div>
+
+          <!-- Owner -->
+          <div class="role-card">
+            <div class="role-icon owner">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <p class="role-card-title">Ev sahibi / Agentlik</p>
+            <p class="role-card-desc">Elan yerləşdirin, rezervasiyaları idarə edin, tələbələrlə əlaqə saxlayın.</p>
+            <div class="role-actions">
+              <a class="role-btn primary" href="owner-login.html">Daxil ol</a>
+              <a class="role-btn" href="owner-login.html?tab=register">Qeydiyyat</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

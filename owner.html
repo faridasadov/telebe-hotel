@@ -1,89 +1,11 @@
 <!doctype html>
-<html lang="az" data-theme="light">
+<html lang="az">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>StudentStay — Ev sahibi paneli</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/styles.css?v=20260515-owner" />
-    <style>
-      body { min-height: 100vh; }
-      .owner-shell { padding: 48px 20px; }
-      .owner-grid { display: grid; grid-template-columns: minmax(300px, 520px) minmax(0, 1fr); gap: 24px; align-items: start; }
-      .owner-card { background: color-mix(in srgb, var(--bg-card) 94%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 28px; backdrop-filter: blur(14px); }
-      .owner-card h1, .owner-card h2 { margin-top: 0; }
-      .owner-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .owner-form .wide { grid-column: 1 / -1; }
-      .owner-note { min-height: 22px; font-weight: 700; }
-      .owner-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
-      .owner-list { display: grid; gap: 12px; }
-      .owner-listing { border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; background: var(--bg-subtle); }
-      .owner-listing strong { display: block; margin-bottom: 6px; }
-      .owner-status { display: inline-flex; padding: 5px 10px; border-radius: var(--r-pill); font-size: 12px; font-weight: 900; }
-      .owner-status.Pending { background: rgba(245, 158, 11, 0.14); color: var(--warning); }
-      .owner-status.Approved { background: rgba(16, 185, 129, 0.14); color: var(--success); }
-      .owner-status.Rejected { background: rgba(239, 68, 68, 0.14); color: var(--danger); }
-      .security-list { margin: 0; padding-left: 18px; color: var(--text-muted); line-height: 1.8; }
-      @media (max-width: 900px) { .owner-grid, .owner-form { grid-template-columns: 1fr; } }
-    </style>
+    <meta http-equiv="refresh" content="0; url=owner-login.html" />
+    <title>StudentStay — Ev sahibi kabineti</title>
   </head>
   <body>
-    <header class="header">
-      <div class="container header-inner">
-        <a class="logo" href="index.html">
-          <span class="logo-mark">S</span>
-          <span class="logo-text">StudentStay</span>
-        </a>
-        <nav class="nav">
-          <a href="index.html">Sayta qayıt</a>
-          <a href="owner-login.html">Giriş</a>
-        </nav>
-      </div>
-    </header>
-
-    <main class="owner-shell">
-      <div class="container owner-grid">
-        <aside class="owner-card">
-          <form id="providerRegisterForm" class="owner-form">
-            <h1 class="wide">Ev sahibi qeydiyyatı</h1>
-            <label class="field wide"><span>Ad və soyad</span><input name="fullName" required></label>
-            <label class="field"><span>Hesab tipi</span>
-              <select name="providerType">
-                <option value="owner">Ev sahibi</option>
-                <option value="agency">Agentlik</option>
-              </select>
-            </label>
-            <label class="field"><span>Şirkət / yataqxana adı</span><input name="companyName"></label>
-            <label class="field"><span>Telefon</span><input name="phone" required placeholder="+994 XX XXX XX XX"></label>
-            <label class="field"><span>E-poçt</span><input name="email" type="email" required></label>
-            <label class="field"><span>Şifrə</span><input name="password" type="password" minlength="8" required></label>
-            <label class="field wide"><span>Şəxsiyyət və ya sahiblik sənədi</span><input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
-            <button class="btn btn-primary btn-lg wide" type="submit">Yoxlamaya göndər</button>
-            <p class="owner-note wide" id="registerNote"></p>
-            <p class="meta wide">Artıq hesabınız var? <a href="owner-login.html">Giriş səhifəsinə keçin</a>.</p>
-          </form>
-
-          <ul class="security-list">
-            <li>Qeydiyyat admin təsdiqindən sonra aktiv olur.</li>
-            <li>Hər elan ayrıca yoxlanmadan saytda görünmür.</li>
-            <li>Şəxsiyyət/sahiblik sənədi olmayan hesab qəbul edilmir.</li>
-          </ul>
-        </aside>
-
-        <section class="owner-card">
-          <h2>Niyə ayrıca yoxlama var?</h2>
-          <ul class="security-list">
-            <li>Saxta profil və saxta elanların qarşısı alınır.</li>
-            <li>Admin sənədi, əlaqə nömrəsini və obyekt məlumatlarını yoxlayır.</li>
-            <li>Təsdiqdən sonra yalnız real sahib elan panelinə daxil olur.</li>
-            <li>Göndərilən elan public sayta düşməzdən əvvəl ayrıca təsdiqlənir.</li>
-          </ul>
-        </section>
-      </div>
-    </main>
-
-    <script src="assets/owner.js?v=20260515-owner"></script>
+    <p>Yönləndirilirsiniz… <a href="owner-login.html">Buraya keçin</a>.</p>
   </body>
 </html>

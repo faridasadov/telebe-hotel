@@ -1,31 +1,331 @@
 <!doctype html>
-<html lang="az" data-theme="light">
+<html lang="az">
   <head>
     <meta charset="utf-8" />
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light");</script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>StudentStay — Ev sahibi girişi</title>
+    <title>StudentStay — Ev sahibi kabineti</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260521-cab" />
     <style>
       body { min-height: 100vh; }
-      .owner-shell { padding: 48px 20px; }
-      .owner-grid { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
-      .owner-card { background: color-mix(in srgb, var(--bg-card) 94%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 28px; backdrop-filter: blur(14px); }
-      .owner-card h1, .owner-card h2 { margin-top: 0; }
-      .owner-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .owner-form .wide { grid-column: 1 / -1; }
-      .owner-note { min-height: 22px; font-weight: 700; }
-      .owner-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
-      .owner-list { display: grid; gap: 12px; }
-      .owner-listing { border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; background: var(--bg-subtle); }
-      .owner-listing strong { display: block; margin-bottom: 6px; }
-      .owner-status { display: inline-flex; padding: 5px 10px; border-radius: var(--r-pill); font-size: 12px; font-weight: 900; }
-      .owner-status.Pending { background: rgba(245, 158, 11, 0.14); color: var(--warning); }
-      .owner-status.Approved { background: rgba(16, 185, 129, 0.14); color: var(--success); }
-      .owner-status.Rejected { background: rgba(239, 68, 68, 0.14); color: var(--danger); }
-      @media (max-width: 900px) { .owner-grid, .owner-form { grid-template-columns: 1fr; } }
+
+      /* ---- Auth screen ---- */
+      .cab-auth-wrap {
+        min-height: calc(100vh - var(--header-h));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+      }
+      .cab-auth-card {
+        width: 100%;
+        max-width: 560px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--r-xl);
+        box-shadow: var(--shadow-xl);
+        padding: 44px 40px;
+      }
+
+      /* ---- Tabs ---- */
+      .cab-tabs {
+        display: inline-flex;
+        gap: 4px;
+        padding: 5px;
+        background: var(--bg-subtle);
+        border-radius: var(--r-pill);
+        margin-bottom: 30px;
+      }
+      .cab-tab {
+        padding: 10px 24px;
+        border-radius: var(--r-pill);
+        font-weight: 700;
+        font-size: var(--fs-sm);
+        color: var(--text-muted);
+        cursor: pointer;
+        border: none;
+        background: none;
+        transition: all .18s;
+      }
+      .cab-tab.active {
+        color: #fff;
+        background: linear-gradient(135deg, var(--brand), var(--accent-2));
+        box-shadow: 0 4px 14px rgba(13,148,136,.28);
+      }
+
+      /* ---- Forms ---- */
+      .cab-form { display: flex; flex-direction: column; gap: 14px; }
+      .cab-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .cab-note { min-height: 22px; font-weight: 700; font-size: 14px; margin: 0; }
+
+      /* ---- Dashboard ---- */
+      .cab-dashboard {
+        display: grid;
+        grid-template-columns: 270px 1fr;
+        min-height: calc(100vh - var(--header-h));
+        align-items: start;
+      }
+
+      /* ---- Sidebar ---- */
+      .cab-sidebar {
+        background: var(--bg-card);
+        border-right: 1px solid var(--border);
+        min-height: calc(100vh - var(--header-h));
+        padding: 28px 16px;
+        position: sticky;
+        top: var(--header-h);
+      }
+      .cab-sidebar-profile {
+        text-align: center;
+        padding-bottom: 24px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .cab-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--brand));
+        color: #fff;
+        font-size: 26px;
+        font-weight: 900;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+      }
+      .cab-profile-name {
+        font-weight: 700;
+        font-size: var(--fs-sm);
+        margin: 0 0 4px;
+        word-break: break-all;
+      }
+      .cab-profile-sub { font-size: 12px; color: var(--text-muted); margin: 0; }
+
+      .cab-nav { display: flex; flex-direction: column; gap: 4px; }
+      .cab-nav-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 14px;
+        border-radius: var(--r-md);
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-muted);
+        cursor: pointer;
+        border: none;
+        background: none;
+        text-align: left;
+        width: 100%;
+        transition: all .15s;
+      }
+      .cab-nav-btn:hover { background: var(--bg-subtle); color: var(--text); }
+      .cab-nav-btn.active {
+        background: linear-gradient(135deg, rgba(13,148,136,.12), rgba(37,99,235,.08));
+        color: var(--brand);
+        font-weight: 700;
+      }
+      .cab-nav-btn svg { flex-shrink: 0; }
+
+      /* ---- Content ---- */
+      .cab-content { padding: 32px 36px; }
+      .cab-section { display: none; }
+      .cab-section.active { display: block; }
+      .cab-section-title { font-size: var(--fs-2xl); font-weight: 800; margin: 0 0 24px; }
+
+      /* ---- Owner listings ---- */
+      .owner-card-item {
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: 20px;
+        background: var(--bg-card);
+        margin-bottom: 14px;
+        transition: box-shadow .18s;
+      }
+      .owner-card-item:hover { box-shadow: var(--shadow-md); }
+      .owner-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .owner-card-title { font-weight: 700; font-size: var(--fs-md); margin: 0; }
+      .owner-card-meta { color: var(--text-muted); font-size: 13px; margin: 4px 0 0; }
+
+      .owner-badge {
+        padding: 4px 12px;
+        border-radius: var(--r-pill);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .owner-badge.Pending  { background: rgba(245,158,11,.14); color: var(--warning); }
+      .owner-badge.Approved { background: rgba(16,185,129,.14); color: var(--success); }
+      .owner-badge.Rejected { background: rgba(239,68,68,.14);  color: var(--danger);  }
+
+      /* ---- Booking / reservation cards ---- */
+      .booking-card {
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: 20px;
+        background: var(--bg-card);
+        margin-bottom: 14px;
+      }
+      .booking-card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .booking-card-place { font-weight: 700; font-size: var(--fs-md); margin: 0 0 4px; }
+      .booking-card-meta { color: var(--text-muted); font-size: 13px; margin: 0; }
+      .bk-badge {
+        padding: 5px 13px;
+        border-radius: var(--r-pill);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .bk-badge.Pending  { background: rgba(245,158,11,.14); color: var(--warning); }
+      .bk-badge.Approved { background: rgba(16,185,129,.14); color: var(--success); }
+      .bk-badge.Rejected { background: rgba(239,68,68,.14);  color: var(--danger);  }
+      .bk-badge.Expired  { background: rgba(100,116,139,.14); color: var(--text-subtle); }
+      .bk-badge.Cancelled{ background: rgba(100,116,139,.14); color: var(--text-subtle); }
+
+      /* ---- Listing form ---- */
+      .form-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: 28px;
+        margin-bottom: 18px;
+      }
+      .form-card h3 { margin: 0 0 20px; font-size: var(--fs-lg); font-weight: 700; }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .form-grid .span2 { grid-column: 1 / -1; }
+      .form-section-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        margin: 20px 0 12px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--border);
+      }
+      .checkbox-row { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+      .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+      /* ---- Edit form inside listing card ---- */
+      .edit-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+      .edit-form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+      .owner-note { min-height: 20px; font-size: 13px; font-weight: 700; margin: 0; }
+
+      /* ---- Chat ---- */
+      .chat-box {
+        margin-top: 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        overflow: hidden;
+        background: var(--bg-subtle);
+      }
+      .chat-header {
+        padding: 10px 16px;
+        font-weight: 700;
+        font-size: 13px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text-muted);
+      }
+      .chat-messages {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px;
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .chat-msg-wrap { display: flex; flex-direction: column; }
+      .chat-msg-wrap.me { align-items: flex-end; }
+      .chat-msg-wrap.them { align-items: flex-start; }
+      .chat-sender { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 3px; }
+      .chat-bubble {
+        max-width: 75%;
+        padding: 9px 14px;
+        border-radius: 16px;
+        font-size: 14px;
+        line-height: 1.55;
+        word-break: break-word;
+      }
+      .chat-bubble.me   { background: linear-gradient(135deg, var(--accent), #d97706); color: #fff; border-bottom-right-radius: 4px; }
+      .chat-bubble.them { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 4px; }
+      .chat-input {
+        display: flex;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+        background: var(--bg-card);
+      }
+      .chat-input textarea {
+        flex: 1;
+        resize: none;
+        border-radius: var(--r-md);
+        border: 1px solid var(--border);
+        padding: 9px 12px;
+        font-family: inherit;
+        font-size: 14px;
+        background: var(--bg-subtle);
+        color: var(--text);
+        transition: border-color .15s;
+      }
+      .chat-input textarea:focus { outline: none; border-color: var(--brand); background: var(--bg-card); }
+
+      /* ---- Empty state ---- */
+      .empty-state {
+        text-align: center;
+        padding: 52px 20px;
+        color: var(--text-muted);
+      }
+      .empty-state svg { margin: 0 auto 16px; display: block; opacity: .35; }
+
+      /* ---- Util ---- */
+      .admin-hidden { display: none !important; }
+
+      /* ---- Responsive ---- */
+      @media (max-width: 900px) {
+        .cab-dashboard { grid-template-columns: 1fr; }
+        .cab-sidebar {
+          min-height: auto;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+          position: static;
+          padding: 16px;
+        }
+        .cab-sidebar-profile {
+          display: flex;
+          gap: 14px;
+          align-items: center;
+          text-align: left;
+          padding-bottom: 14px;
+          margin-bottom: 12px;
+        }
+        .cab-avatar { margin: 0; flex-shrink: 0; width: 48px; height: 48px; font-size: 20px; }
+        .cab-nav { flex-direction: row; flex-wrap: wrap; }
+        .cab-nav-btn { width: auto; padding: 8px 14px; }
+        .cab-content { padding: 20px 16px; }
+        .cab-auth-card { padding: 30px 22px; }
+        .form-grid { grid-template-columns: 1fr; }
+        .form-grid .span2 { grid-column: 1; }
+        .edit-form-grid { grid-template-columns: 1fr 1fr; }
+        .cab-form-row { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
@@ -36,94 +336,247 @@
           <span class="logo-text">StudentStay</span>
         </a>
         <nav class="nav">
-          <a href="index.html">Sayta qayıt</a>
-          <a href="owner.html">Qeydiyyat</a>
-          <button class="btn btn-sm admin-hidden" id="ownerLogout" type="button">Çıxış</button>
+          <a href="index.html">Ana səhifə</a>
+          <a href="index.html#places">Yaşayış yerləri</a>
+          <button class="btn btn-sm" id="ownerLogout" type="button" style="display:none">Çıxış</button>
         </nav>
+        <div class="header-actions">
+          <span class="eyebrow" style="background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(239,68,68,.1));color:var(--accent);font-size:11px;padding:4px 10px">Ev sahibi</span>
+        </div>
       </div>
     </header>
 
-    <main class="owner-shell">
-      <div class="container owner-grid">
-        <aside class="owner-card" id="loginCard">
-          <form id="providerLoginForm" class="owner-form">
-            <h1 class="wide">Ev sahibi girişi</h1>
-            <label class="field wide"><span>Login</span><input name="email" type="email" autocomplete="username" required></label>
-            <label class="field wide"><span>Parol</span><input name="password" type="password" autocomplete="current-password" required></label>
-            <button class="btn btn-primary btn-lg wide" type="submit">Panelə daxil ol</button>
-            <p class="owner-note wide" id="loginNote"></p>
-            <p class="meta wide">Hesabınız yoxdur? <a href="owner.html">Qeydiyyatdan keçin</a>.</p>
-          </form>
+    <!-- ═══════════════ AUTH SCREEN ═══════════════ -->
+    <div class="cab-auth-bg" id="loginCard">
+      <div class="cab-auth-card" style="border-top:3px solid transparent;border-image:linear-gradient(90deg,var(--accent),var(--brand)) 1;border-top-left-radius:var(--r-xl);border-top-right-radius:var(--r-xl)">
+        <div class="cab-tabs">
+          <button class="cab-tab active" type="button" data-owner-tab="login">Daxil ol</button>
+          <button class="cab-tab" type="button" data-owner-tab="register">Qeydiyyat</button>
+        </div>
+
+        <!-- Login -->
+        <form id="providerLoginForm" class="cab-form">
+          <div style="margin-bottom:6px">
+            <h1 style="margin:0 0 4px;font-size:var(--fs-2xl);font-weight:800">Ev sahibi kabineti</h1>
+            <p style="margin:0;color:var(--text-muted);font-size:var(--fs-sm)">Hesabınıza daxil olun</p>
+          </div>
+          <label class="field"><span>E-poçt</span><input name="email" type="email" autocomplete="username" required></label>
+          <label class="field"><span>Parol</span><input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="btn btn-primary btn-lg" type="submit">Kabinetə daxil ol</button>
+          <p class="cab-note" id="loginNote"></p>
+        </form>
+
+        <!-- Register -->
+        <form id="providerRegisterForm" class="cab-form admin-hidden">
+          <div style="margin-bottom:6px">
+            <h1 style="margin:0 0 4px;font-size:var(--fs-2xl);font-weight:800">Qeydiyyat</h1>
+            <p style="margin:0;color:var(--text-muted);font-size:var(--fs-sm)">Elan sahibi hesabı yaradın</p>
+          </div>
+          <label class="field"><span>Ad və soyad</span><input name="fullName" required></label>
+          <div class="cab-form-row">
+            <label class="field"><span>Hesab tipi</span>
+              <select name="providerType">
+                <option value="owner">Ev sahibi</option>
+                <option value="agency">Agentlik</option>
+              </select>
+            </label>
+            <label class="field"><span>Şirkət / yataqxana adı</span><input name="companyName"></label>
+          </div>
+          <div class="cab-form-row">
+            <label class="field"><span>Telefon</span><input name="phone" required placeholder="+994 XX XXX XX XX"></label>
+            <label class="field"><span>E-poçt</span><input name="email" type="email" required></label>
+          </div>
+          <label class="field"><span>Parol (min. 8 simvol)</span><input name="password" type="password" minlength="8" required></label>
+          <label class="field"><span>Şəxsiyyət / sahiblik sənədi (PDF / şəkil)</span><input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+          <button class="btn btn-primary btn-lg" type="submit">Yoxlamaya göndər</button>
+          <p class="cab-note" id="registerNote"></p>
+          <p style="color:var(--text-muted);font-size:13px;margin:0">
+            Qeydiyyat admin təsdiqindən sonra aktiv olur. Hər elan ayrıca yoxlanılır.
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══════════════ DASHBOARD ═══════════════ -->
+    <div id="ownerPanel" class="admin-hidden">
+      <div class="cab-dashboard">
+
+        <!-- Sidebar -->
+        <aside class="cab-sidebar">
+          <div class="cab-sidebar-profile">
+            <div class="cab-avatar" id="ownerAvatarLetter">E</div>
+            <p class="cab-profile-name" id="ownerName">—</p>
+            <p class="cab-profile-sub">Ev sahibi / Agentlik</p>
+          </div>
+          <nav class="cab-nav" aria-label="Kabinet naviqasiyası">
+            <button class="cab-nav-btn active" type="button" data-owner-panel-tab="add-listing">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Yeni Elan
+            </button>
+            <button class="cab-nav-btn" type="button" data-owner-panel-tab="my-listings">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Elanlarım
+            </button>
+            <button class="cab-nav-btn" type="button" data-owner-panel-tab="my-places">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Otaqlarım
+            </button>
+            <button class="cab-nav-btn" type="button" data-owner-panel-tab="bookings">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Rezervasiyalar
+            </button>
+          </nav>
         </aside>
 
-        <section id="ownerPanel" class="owner-card admin-hidden">
-          <div class="owner-panel-head">
-            <div>
-              <h2>Elan paneli</h2>
-              <p class="meta" id="ownerName"></p>
+        <!-- Content -->
+        <main class="cab-content">
+
+          <!-- ── ADD LISTING TAB ── -->
+          <section class="cab-section active" id="ownerPanelTabAddListing">
+            <h2 class="cab-section-title">Yeni Elan</h2>
+            <div class="form-card">
+              <h3>Elan məlumatları</h3>
+              <form id="ownerListingForm" class="form-grid">
+
+                <div class="form-section-label span2">Əsas məlumatlar</div>
+
+                <label class="field span2"><span>Obyekt adı</span><input name="name" required></label>
+                <label class="field"><span>Şəhər</span>
+                  <select name="city">
+                    <option value="baku">Bakı</option>
+                    <option value="ganja">Gəncə</option>
+                    <option value="sumgayit">Sumqayıt</option>
+                  </select>
+                </label>
+                <label class="field"><span>Tip</span>
+                  <select name="type">
+                    <option value="hostel">Yataqxana</option>
+                    <option value="apartment">Kirayə ev</option>
+                    <option value="hotel">Hotel</option>
+                  </select>
+                </label>
+                <label class="field"><span>Uyğunluq</span>
+                  <select name="gender">
+                    <option value="mixed">Qarışıq</option>
+                    <option value="female">Qız üçün</option>
+                    <option value="male">Oğlan üçün</option>
+                  </select>
+                </label>
+                <label class="field"><span>Aylıq qiymət (AZN)</span><input name="price" type="number" min="1" required></label>
+
+                <div class="form-section-label span2">Tutum</div>
+
+                <label class="field"><span>Otaq sayı</span><input name="room_count" type="number" min="1" value="1" required></label>
+                <label class="field"><span>Cəmi yataq</span><input name="total_spots" type="number" min="1" required></label>
+                <label class="field"><span>Boş qız yeri</span><input name="female_free" type="number" min="0" value="0"></label>
+                <label class="field"><span>Boş oğlan yeri</span><input name="male_free" type="number" min="0" value="0"></label>
+                <label class="field"><span>Qalan qızlar (işğal)</span><input name="female_occupied" type="number" min="0" value="0"></label>
+                <label class="field"><span>Qalan oğlanlar (işğal)</span><input name="male_occupied" type="number" min="0" value="0"></label>
+
+                <div class="form-section-label span2">Yerləşmə</div>
+
+                <label class="field span2"><span>Ünvan</span><input name="address" required></label>
+                <label class="field"><span>Latitude</span><input name="lat" type="number" step="0.000001" placeholder="40.4093"></label>
+                <label class="field"><span>Longitude</span><input name="lng" type="number" step="0.000001" placeholder="49.8671"></label>
+                <label class="field"><span>Metroya məsafə (dəq)</span><input name="metro_distance_min" type="number" min="0" value="0"></label>
+                <label class="field"><span>Min. müqavilə (ay)</span><input name="min_contract_months" type="number" min="1" value="1"></label>
+
+                <div class="form-section-label span2">Şəkillər</div>
+
+                <label class="field span2"><span>Şəkil yüklə (minimum 3, JPG/PNG/WEBP)</span><input name="imageFiles" type="file" accept=".jpg,.jpeg,.png,.webp" multiple></label>
+                <label class="field span2"><span>Əlavə şəkil URL-ləri (istəyə görə, hər biri yeni sətrdə)</span><textarea name="images" rows="3"></textarea></label>
+
+                <div class="form-section-label span2">Təsvir və imkanlar</div>
+
+                <label class="field span2"><span>Təsvir</span><textarea name="description" rows="3"></textarea></label>
+                <label class="field span2">
+                  <span>İmkanlar (hər biri yeni sətrdə: wifi, kitchen, laundry, study_room, security, heating, ac, parking, gym, tv, cleaning)</span>
+                  <textarea name="amenities" rows="3"></textarea>
+                </label>
+                <label class="field span2">
+                  <span>Yaxın universitetlər (hər biri yeni sətrdə: KOD | Ad | dəqiqə)</span>
+                  <textarea name="universities" rows="3" placeholder="BDU | Bakı Dövlət Universiteti | 10&#10;ADA | ADA Universiteti | 15"></textarea>
+                </label>
+
+                <div class="span2" style="display:flex;gap:20px;padding:4px 0">
+                  <label class="checkbox-row"><input type="checkbox" name="wifi"> Wi-Fi var</label>
+                  <label class="checkbox-row"><input type="checkbox" name="utilities"> Kommunal daxildir</label>
+                </div>
+
+                <div class="span2">
+                  <button class="btn btn-primary btn-lg" type="submit">Elanı yoxlamaya göndər</button>
+                </div>
+                <p class="owner-note span2" id="listingNote"></p>
+              </form>
             </div>
-          </div>
+          </section>
 
-          <form id="ownerListingForm" class="owner-form">
-            <label class="field"><span>Obyekt adı</span><input name="name" required></label>
-            <label class="field"><span>Şəhər</span>
-              <select name="city">
-                <option value="baku">Bakı</option>
-                <option value="ganja">Gəncə</option>
-                <option value="sumgayit">Sumqayıt</option>
-              </select>
-            </label>
-            <label class="field"><span>Tip</span>
-              <select name="type">
-                <option value="hostel">Yataqxana</option>
-                <option value="apartment">Kirayə ev</option>
-                <option value="hotel">Hotel</option>
-              </select>
-            </label>
-            <label class="field"><span>Uyğunluq</span>
-              <select name="gender">
-                <option value="mixed">Qarışıq</option>
-                <option value="female">Qız üçün</option>
-                <option value="male">Oğlan üçün</option>
-              </select>
-            </label>
-            <label class="field"><span>Aylıq qiymət</span><input name="price" type="number" min="1" required></label>
-            <label class="field"><span>Otaq sayı</span><input name="room_count" type="number" min="1" value="1" required></label>
-            <label class="field"><span>Cəmi yataq</span><input name="total_spots" type="number" min="1" required></label>
-            <label class="field"><span>Metro məsafəsi (dəq)</span><input name="metro_distance_min" type="number" min="0" value="0"></label>
-            <label class="field"><span>Minimum müqavilə (ay)</span><input name="min_contract_months" type="number" min="1" value="1"></label>
-            <label class="field"><span>Boş qız yeri</span><input name="female_free" type="number" min="0" value="0"></label>
-            <label class="field"><span>Boş oğlan yeri</span><input name="male_free" type="number" min="0" value="0"></label>
-            <label class="field"><span>Qalan qızlar</span><input name="female_occupied" type="number" min="0" value="0"></label>
-            <label class="field"><span>Qalan oğlanlar</span><input name="male_occupied" type="number" min="0" value="0"></label>
-            <label class="field"><span>Latitude</span><input name="lat" type="number" step="0.000001"></label>
-            <label class="field"><span>Longitude</span><input name="lng" type="number" step="0.000001"></label>
-            <label class="field wide"><span>Ünvan</span><input name="address" required></label>
-            <label class="field wide"><span>Şəkillər yüklə (minimum 3)</span><input name="imageFiles" type="file" accept=".jpg,.jpeg,.png,.webp" multiple></label>
-            <label class="field wide"><span>Əlavə şəkil URL-ləri (istəyə görə)</span><textarea name="images" rows="3"></textarea></label>
-            <label class="field wide"><span>Təsvir</span><textarea name="description" rows="3"></textarea></label>
-            <label class="field wide"><span>İmkanlar (wifi, kitchen, laundry...)</span><textarea name="amenities" rows="2"></textarea></label>
-            <label class="field wide"><span>Universitetlər (CODE | Ad | dəqiqə)</span><textarea name="universities" rows="3"></textarea></label>
-            <label><input type="checkbox" name="wifi"> Wi-Fi var</label>
-            <label><input type="checkbox" name="utilities"> Kommunal daxildir</label>
-            <button class="btn btn-primary btn-lg wide" type="submit">Elanı yoxlamaya göndər</button>
-            <p class="owner-note wide" id="listingNote"></p>
-          </form>
+          <!-- ── MY LISTINGS (PENDING) TAB ── -->
+          <section class="cab-section" id="ownerPanelTabMyListings">
+            <h2 class="cab-section-title">Elanlarım</h2>
+            <p style="color:var(--text-muted);font-size:14px;margin:-14px 0 20px">Admin yoxlamasında olan elanlar</p>
+            <div id="ownerListings">
+              <p style="color:var(--text-muted)">Yüklənir...</p>
+            </div>
+          </section>
 
-          <h2>Göndərilən elanlar</h2>
-          <div id="ownerListings" class="owner-list"></div>
+          <!-- ── MY PLACES (PUBLISHED) TAB ── -->
+          <section class="cab-section" id="ownerPanelTabMyPlaces">
+            <h2 class="cab-section-title">Otaqlarım</h2>
+            <p style="color:var(--text-muted);font-size:14px;margin:-14px 0 20px">Yayımlanmış elanlar. Dəyişiklik sorğusu admin təsdiqinə gedir.</p>
+            <div id="ownerPlaces">
+              <p style="color:var(--text-muted)">Yüklənir...</p>
+            </div>
+          </section>
 
-          <h2>Yayımlanmış otaqlar</h2>
-          <p class="meta">Doluluq, qiymət və otaq məlumatı dəyişəndə sorğu admin təsdiqinə gedir.</p>
-          <div id="ownerPlaces" class="owner-list"></div>
+          <!-- ── BOOKINGS TAB ── -->
+          <section class="cab-section" id="ownerPanelTabBookings">
+            <h2 class="cab-section-title">Rezervasiyalar</h2>
+            <div id="ownerBookings">
+              <p style="color:var(--text-muted)">Yüklənir...</p>
+            </div>
+          </section>
 
-          <h2>Rezervasiyalar və cavablar</h2>
-          <p class="meta">Tələbələrdən gələn müraciətləri izləyin və onlara mesajla cavab verin.</p>
-          <div id="ownerBookings" class="owner-list"></div>
-        </section>
+        </main>
       </div>
-    </main>
+    </div>
 
-    <script src="assets/owner.js?v=20260521-final"></script>
+    <script src="assets/owner.js?v=20260521-cab"></script>
+    <script>
+      // Theme toggle for logo-mark
+      (function() {
+        const el = document.querySelector('.logo-mark');
+        if (!el) return;
+        el.style.cursor = 'pointer';
+        el.setAttribute('title', 'Tema dəyiş');
+        el.addEventListener('click', () => {
+          const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', t);
+          localStorage.setItem('theme', t);
+        });
+      })();
+
+      // Panel tab switching
+      const ownerPanelTabMap = {
+        "add-listing": "ownerPanelTabAddListing",
+        "my-listings": "ownerPanelTabMyListings",
+        "my-places":   "ownerPanelTabMyPlaces",
+        "bookings":    "ownerPanelTabBookings",
+      };
+      document.querySelectorAll("[data-owner-panel-tab]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          document.querySelectorAll("[data-owner-panel-tab]").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          document.querySelectorAll(".cab-section").forEach((s) => s.classList.remove("active"));
+          const tab = btn.dataset.ownerPanelTab;
+          const target = document.getElementById(ownerPanelTabMap[tab]);
+          if (target) target.classList.add("active");
+          // Load data lazily on first click
+          if (tab === "my-listings")  window._ownerLoadListings  && window._ownerLoadListings();
+          if (tab === "my-places")    window._ownerLoadPlaces    && window._ownerLoadPlaces();
+          if (tab === "bookings")     window._ownerLoadBookings  && window._ownerLoadBookings();
+        });
+      });
+    </script>
   </body>
 </html>
