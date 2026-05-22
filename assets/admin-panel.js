@@ -12,6 +12,32 @@ function escHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function statusLabel(status) {
+  const map = {
+    Approved: "Təsdiqlənib",
+    Rejected: "Rədd edilib",
+    Pending: "Gözləyir",
+    Resolved: "Həll edildi",
+    Reviewed: "Baxıldı",
+    Expired: "Vaxtı keçib",
+    Cancelled: "Ləğv edildi",
+  };
+  return map[status] || status || "—";
+}
+
+function typeLabel(type) {
+  if (type === "hostel") return "Yataqxana";
+  if (type === "apartment") return "Kirayə ev";
+  if (type === "hotel") return "Hotel";
+  return escHtml(type || "—");
+}
+
+function statusClass(status) {
+  if (status === "Approved" || status === "Resolved" || status === "Reviewed") return "status-approved";
+  if (status === "Rejected" || status === "Cancelled" || status === "Expired") return "status-rejected";
+  return "status-pending";
+}
+
 async function authFetch(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: "same-origin" });
   if (response.status === 401) {
@@ -80,19 +106,17 @@ qs("#logoutBtn").addEventListener("click", () => {
   showLogin();
 });
 
+const TAB_IDS = ["places", "bookings", "providers", "students", "providerListings", "verification", "reports", "audit", "adminUsers"];
+
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     const tab = btn.dataset.tab;
-    qs("#tabPlaces").style.display = tab === "places" ? "block" : "none";
-    qs("#tabBookings").style.display = tab === "bookings" ? "block" : "none";
-    qs("#tabProviders").style.display = tab === "providers" ? "block" : "none";
-    qs("#tabStudents").style.display = tab === "students" ? "block" : "none";
-    qs("#tabProviderListings").style.display = tab === "providerListings" ? "block" : "none";
-    qs("#tabVerification").style.display = tab === "verification" ? "block" : "none";
-    qs("#tabReports").style.display = tab === "reports" ? "block" : "none";
-    qs("#tabAudit").style.display = tab === "audit" ? "block" : "none";
+    TAB_IDS.forEach((id) => {
+      const el = qs(`#tab${id.charAt(0).toUpperCase() + id.slice(1)}`);
+      if (el) el.style.display = tab === id ? "block" : "none";
+    });
     if (tab === "places") fetchPlaces();
     if (tab === "bookings") fetchBookings();
     if (tab === "providers") fetchProviders();
@@ -101,17 +125,32 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     if (tab === "verification") fetchVerificationQueue();
     if (tab === "reports") fetchReports();
     if (tab === "audit") fetchAuditLogs();
+    if (tab === "adminUsers") fetchAdminUsers();
   });
 });
 
+function attachSearch(inputId, tbodyId) {
+  const input = qs(`#${inputId}`);
+  const tbody = qs(`#${tbodyId}`);
+  if (!input || !tbody) return;
+  input.oninput = () => {
+    const q = input.value.toLowerCase();
+    Array.from(tbody.rows).forEach((row) => {
+      row.style.display = q && !row.textContent.toLowerCase().includes(q) ? "none" : "";
+    });
+  };
+}
+
 async function fetchStats() {
-  const response = await authFetch(`${API_URL}/admin/stats`);
+  const response = await authFetch(`${API_URL}/admin/stats-extended`);
   if (!response.ok) throw new Error("Statistika yüklənmədi");
   const stats = await response.json();
-  qs("#statPlaces").textContent = stats.totalPlaces;
-  qs("#statSpots").textContent = stats.totalSpots;
-  qs("#statFree").textContent = stats.freeSpots;
-  qs("#statPending").textContent = stats.pendingBookings;
+  qs("#statPlaces").textContent = stats.totalPlaces ?? "-";
+  qs("#statSpots").textContent = stats.totalSpots ?? "-";
+  qs("#statFree").textContent = stats.freeSpots ?? "-";
+  qs("#statPending").textContent = stats.pendingBookings ?? "-";
+  qs("#statStudents").textContent = stats.approvedStudents ?? "-";
+  qs("#statProviders").textContent = stats.approvedProviders ?? "-";
 }
 
 async function fetchPlaces() {
@@ -122,7 +161,8 @@ async function fetchPlaces() {
     <tr>
       <td>${p.id}</td>
       <td><strong>${escHtml(p.name)}</strong></td>
-      <td>${escHtml(String(p.city).toUpperCase())}</td>
+      <td>${escHtml(String(p.city || "").toUpperCase())}</td>
+      <td>${typeLabel(p.type)}</td>
       <td>${escHtml(p.price)} AZN</td>
       <td>Q: ${escHtml(p.female_occupied)}/${escHtml(p.female_free)} | O: ${escHtml(p.male_occupied)}/${escHtml(p.male_free)}</td>
       <td class="admin-actions">
@@ -131,6 +171,7 @@ async function fetchPlaces() {
       </td>
     </tr>
   `).join("");
+  attachSearch("searchPlaces", "placesTableBody");
 }
 
 async function deletePlace(id) {
@@ -140,15 +181,6 @@ async function deletePlace(id) {
     fetchPlaces();
     fetchStats();
   }
-}
-
-function statusClass(status) {
-  if (status === "Approved") return "status-approved";
-  if (status === "Resolved" || status === "Reviewed") return "status-approved";
-  if (status === "Rejected") return "status-rejected";
-  if (status === "Cancelled") return "status-rejected";
-  if (status === "Expired") return "status-rejected";
-  return "status-pending";
 }
 
 async function fetchBookings() {
@@ -161,15 +193,15 @@ async function fetchBookings() {
       <td>
         <strong>${escHtml(b.full_name)}</strong><br>
         <small>${escHtml(b.phone)} | ${escHtml(b.email)}</small>
-        <span class="muted-small">Tracking: ${escHtml(b.tracking_code || "-")}</span>
-        <span class="muted-small">Razılaşma: ${escHtml(b.expires_at ? new Date(b.expires_at).toLocaleString() : "-")}</span>
+        <span class="muted-small">İzləmə kodu: ${escHtml(b.tracking_code || "—")}</span>
+        <span class="muted-small">Razılaşma: ${escHtml(b.expires_at ? new Date(b.expires_at).toLocaleString() : "—")}</span>
         ${b.note ? `<span class="muted-small">${escHtml(b.note)}</span>` : ""}
         ${b.admin_note ? `<span class="muted-small">Admin: ${escHtml(b.admin_note)}</span>` : ""}
       </td>
       <td>${escHtml(b.place_name || "Seçilməyib")}</td>
-      <td>${b.gender === "female" ? "Qız" : "Oğlan"}</td>
+      <td>${b.gender === "female" ? "Qız" : b.gender === "male" ? "Oğlan" : "—"}</td>
       <td>${escHtml(b.duration)} ay</td>
-      <td><span class="status ${statusClass(b.status)}">${escHtml(b.status)}</span></td>
+      <td><span class="status ${statusClass(b.status)}">${statusLabel(b.status)}</span></td>
       <td>
         <div class="booking-actions">
           <button class="btn btn-sm" onclick="setBookingStatus(${b.id}, 'Approved')" ${b.status === "Approved" ? "disabled" : ""}>Təsdiq</button>
@@ -181,6 +213,7 @@ async function fetchBookings() {
       </td>
     </tr>
   `).join("");
+  attachSearch("searchBookings", "bookingsTableBody");
 }
 
 async function fetchProviders() {
@@ -198,7 +231,7 @@ async function fetchProviders() {
         </div>
       </td>
       <td>${escHtml(p.phone)}<br><small>${escHtml(p.email)}</small></td>
-      <td><span class="status ${statusClass(p.status)}">${escHtml(p.status)}</span></td>
+      <td><span class="status ${statusClass(p.status)}">${statusLabel(p.status)}</span></td>
       <td>
         <div class="booking-actions">
           <button class="btn btn-sm" onclick="setProviderStatus(${p.id}, 'Approved')" ${p.status === "Approved" ? "disabled" : ""}>Təsdiq</button>
@@ -208,6 +241,7 @@ async function fetchProviders() {
       </td>
     </tr>
   `).join("");
+  attachSearch("searchProviders", "providersTableBody");
 }
 
 async function fetchStudents() {
@@ -223,7 +257,7 @@ async function fetchStudents() {
         ${s.admin_note ? `<span class="muted-small">${escHtml(s.admin_note)}</span>` : ""}
       </td>
       <td>${escHtml(s.university || "")}</td>
-      <td><span class="status ${statusClass(s.status)}">${escHtml(s.status)}</span></td>
+      <td><span class="status ${statusClass(s.status)}">${statusLabel(s.status)}</span></td>
       <td>
         <div class="booking-actions">
           <button class="btn btn-sm" onclick="setStudentStatus(${s.id}, 'Approved')" ${s.status === "Approved" ? "disabled" : ""}>Təsdiq</button>
@@ -234,6 +268,7 @@ async function fetchStudents() {
       </td>
     </tr>
   `).join("") || `<tr><td colspan="5">Tələbə qeydiyyatı yoxdur.</td></tr>`;
+  attachSearch("searchStudents", "studentsTableBody");
 }
 
 async function setStudentStatus(id, status) {
@@ -295,12 +330,12 @@ async function fetchProviderListings() {
       <td>${new Date(l.created_at).toLocaleDateString()}</td>
       <td>
         <strong>${escHtml(l.name)}</strong><br>
-        <small>${escHtml(l.city)} · ${escHtml(l.type)} · ${escHtml(l.price)} AZN</small>
+        <small>${escHtml(l.city)} · ${typeLabel(l.type)} · ${escHtml(l.price)} AZN</small>
         <span class="muted-small">${escHtml(l.address || "")}</span>
         ${l.admin_note ? `<span class="muted-small">${escHtml(l.admin_note)}</span>` : ""}
       </td>
       <td>${escHtml(l.provider_name)}<br><small>${escHtml(l.provider_email)} · ${escHtml(l.provider_phone)}</small></td>
-      <td><span class="status ${statusClass(l.status)}">${escHtml(l.status)}</span></td>
+      <td><span class="status ${statusClass(l.status)}">${statusLabel(l.status)}</span></td>
       <td>
         <div class="booking-actions">
           <button class="btn btn-sm" onclick="setProviderListingStatus(${l.id}, 'Approved')" ${l.status === "Approved" ? "disabled" : ""}>Yayımla</button>
@@ -310,11 +345,12 @@ async function fetchProviderListings() {
       </td>
     </tr>
   `).join("");
+  attachSearch("searchListings", "providerListingsTableBody");
 }
 
 async function fetchVerificationQueue() {
   const response = await authFetch(`${API_URL}/admin/verification-queue`);
-  if (!response.ok) throw new Error("Verification queue yüklənmədi");
+  if (!response.ok) throw new Error("Yoxlama növbəsi yüklənmədi");
   const data = await response.json();
   qs("#verifyProviderCount").textContent = data.providers.length;
   qs("#verifyStudentCount").textContent = data.students.length;
@@ -355,6 +391,7 @@ async function fetchVerificationQueue() {
     </tr>
   `);
   qs("#verificationTableBody").innerHTML = providerRows.concat(studentRows, listingRows).join("") || `<tr><td colspan="4">Gözləyən yoxlama yoxdur.</td></tr>`;
+  attachSearch("searchVerification", "verificationTableBody");
 }
 
 async function fetchReports() {
@@ -366,7 +403,7 @@ async function fetchReports() {
       <td>${new Date(r.created_at).toLocaleDateString()}</td>
       <td>${escHtml(r.place_name || "Silinmiş elan")}<br><small>ID: ${escHtml(r.place_id)}</small></td>
       <td><strong>${escHtml(r.reason)}</strong><br><small>${escHtml(r.reporter_name || "")} ${escHtml(r.reporter_contact || "")}</small></td>
-      <td><span class="status ${statusClass(r.status)}">${escHtml(r.status)}</span></td>
+      <td><span class="status ${statusClass(r.status)}">${statusLabel(r.status)}</span></td>
       <td class="booking-actions">
         <button class="btn btn-sm" onclick="setReportStatus(${r.id}, 'Reviewed')">Baxıldı</button>
         <button class="btn btn-sm" onclick="setReportStatus(${r.id}, 'Resolved')">Həll edildi</button>
@@ -374,6 +411,7 @@ async function fetchReports() {
       </td>
     </tr>
   `).join("") || `<tr><td colspan="5">Report yoxdur.</td></tr>`;
+  attachSearch("searchReports", "reportsTableBody");
 }
 
 async function setReportStatus(id, status) {
@@ -391,9 +429,21 @@ async function setReportStatus(id, status) {
   fetchReports();
 }
 
+function formatAuditDetails(raw) {
+  if (!raw) return "—";
+  try {
+    const obj = JSON.parse(raw);
+    return Object.entries(obj)
+      .map(([k, v]) => `<span class="muted-small"><strong>${escHtml(k)}:</strong> ${escHtml(String(v))}</span>`)
+      .join("");
+  } catch {
+    return escHtml(raw);
+  }
+}
+
 async function fetchAuditLogs() {
   const response = await authFetch(`${API_URL}/admin/audit-logs`);
-  if (!response.ok) throw new Error("Audit log yüklənmədi");
+  if (!response.ok) throw new Error("Fəaliyyət jurnalı yüklənmədi");
   const logs = await response.json();
   qs("#auditTableBody").innerHTML = logs.map((log) => `
     <tr>
@@ -401,9 +451,10 @@ async function fetchAuditLogs() {
       <td>${escHtml(log.actor)}</td>
       <td>${escHtml(log.action)}</td>
       <td>${escHtml(log.entity_type)} #${escHtml(log.entity_id || "")}</td>
-      <td><small>${escHtml(log.details || "")}</small></td>
+      <td><div style="display:grid;gap:2px">${formatAuditDetails(log.details)}</div></td>
     </tr>
   `).join("") || `<tr><td colspan="5">Audit qeydi yoxdur.</td></tr>`;
+  attachSearch("searchAudit", "auditTableBody");
 }
 
 async function setProviderListingStatus(id, status) {
@@ -469,6 +520,79 @@ async function deleteBooking(id) {
   fetchStats();
 }
 
+// Admin users management
+async function fetchAdminUsers() {
+  const response = await authFetch(`${API_URL}/admin/admin-users`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    qs("#adminUsersTableBody").innerHTML = `<tr><td colspan="5" style="color:var(--danger)">${escHtml(data.error || "Bu bölməyə giriş icazəniz yoxdur (yalnız super admin)")}</td></tr>`;
+    return;
+  }
+  const data = await response.json();
+  qs("#adminUsersTableBody").innerHTML = data.map((u) => `
+    <tr>
+      <td>${u.id}</td>
+      <td><strong>${escHtml(u.username)}</strong></td>
+      <td>${u.role === "superadmin" ? "Super Admin" : u.role === "support" ? "Dəstək" : "Moderator"}</td>
+      <td><span class="status ${u.active ? "status-approved" : "status-rejected"}">${u.active ? "Aktiv" : "Qeyri-aktiv"}</span></td>
+      <td>
+        <div class="booking-actions">
+          <button class="btn btn-sm" onclick="toggleAdminUser(${u.id}, ${!u.active})">${u.active ? "Deaktiv et" : "Aktivləşdir"}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAdminUser(${u.id})">Sil</button>
+        </div>
+      </td>
+    </tr>
+  `).join("") || `<tr><td colspan="5">Heç bir admin tapılmadı.</td></tr>`;
+  attachSearch("searchAdminUsers", "adminUsersTableBody");
+}
+
+async function toggleAdminUser(id, active) {
+  const response = await authFetch(`${API_URL}/admin/admin-users/${id}/active`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ active }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    alert(data.error || "Status dəyişmədi");
+    return;
+  }
+  fetchAdminUsers();
+}
+
+async function deleteAdminUser(id) {
+  if (!confirm("Bu admin hesabını silmək istədiyinizə əminsiniz?")) return;
+  const response = await authFetch(`${API_URL}/admin/admin-users/${id}`, { method: "DELETE" });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    alert(data.error || "Admin silinmədi");
+    return;
+  }
+  fetchAdminUsers();
+}
+
+qs("#adminUserForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const payload = Object.fromEntries(new FormData(form).entries());
+  const errEl = qs("#adminUserError");
+  if (errEl) errEl.textContent = "";
+  const response = await authFetch(`${API_URL}/admin/admin-users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    if (errEl) errEl.textContent = data.error || "Admin yaradılmadı";
+    else alert(data.error || "Admin yaradılmadı");
+    return;
+  }
+  form.reset();
+  fetchAdminUsers();
+});
+
+// Place edit modal
 const modal = qs("#adminModal");
 const placeForm = qs("#placeForm");
 
@@ -598,3 +722,5 @@ window.setStudentStatus = setStudentStatus;
 window.openStudentDocument = openStudentDocument;
 window.setProviderListingStatus = setProviderListingStatus;
 window.setReportStatus = setReportStatus;
+window.toggleAdminUser = toggleAdminUser;
+window.deleteAdminUser = deleteAdminUser;

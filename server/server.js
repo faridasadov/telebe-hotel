@@ -493,10 +493,6 @@ app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body || {};
   const normalizedUsername = String(username || '').trim();
   const finishLogin = (user, role) => {
-    if (role === 'superadmin') {
-      recordLoginFailure(req);
-      return res.status(403).json({ error: 'Superadmin üçün ayrıca giriş səhifəsindən istifadə edin' });
-    }
     clearLoginFailures(req);
     const token = createAdminSession(user, role);
     setAdminCookie(res, token);
@@ -1521,6 +1517,72 @@ function sendStats(res) {
 // ---- Public/Admin stats ----
 app.get('/api/stats', (req, res) => sendStats(res));
 app.get('/api/admin/stats', requireAdmin, (req, res) => sendStats(res));
+
+// ---- Admin extended stats ----
+app.get('/api/admin/stats-extended', requireAdmin, (req, res) => {
+  expireOldBookings(() => {
+    db.get(`SELECT
+      (SELECT count(*) FROM places)           AS totalPlaces,
+      (SELECT sum(total_spots) FROM places)   AS totalSpots,
+      (SELECT sum(free_spots) FROM places)    AS freeSpots,
+      (SELECT count(*) FROM bookings WHERE status='Pending')  AS pendingBookings,
+      (SELECT count(*) FROM bookings)         AS totalBookings,
+      (SELECT count(*) FROM students)         AS totalStudents,
+      (SELECT count(*) FROM students WHERE status='Approved') AS approvedStudents,
+      (SELECT count(*) FROM providers)        AS totalProviders,
+      (SELECT count(*) FROM providers WHERE status='Approved') AS approvedProviders,
+      (SELECT count(*) FROM bookings WHERE status='Approved') AS approvedBookings
+    `, [], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(row || {});
+    });
+  });
+});
+
+// ---- Admin users management (superadmin only) ----
+app.get('/api/admin/admin-users', requireAdmin, requireSuperAdmin, (req, res) => {
+  db.all("SELECT id, username, full_name, role, active, created_at FROM admin_users ORDER BY created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/admin/admin-users', requireAdmin, requireSuperAdmin, (req, res) => {
+  const { username, fullName, role, password } = req.body || {};
+  if (!username || !password || String(password).length < 8) {
+    return res.status(400).json({ error: 'İstifadəçi adı və minimum 8 simvolluq parol tələb olunur' });
+  }
+  const safeRole = ['superadmin','moderator','support'].includes(role) ? role : 'moderator';
+  hashPassword(password, (hashErr, passwordHash) => {
+    if (hashErr) return res.status(500).json({ error: hashErr.message });
+    db.run(
+      "INSERT INTO admin_users (username, full_name, role, password_hash, active) VALUES (?,?,?,?,1)",
+      [String(username).trim(), String(fullName || '').trim(), safeRole, passwordHash],
+      function(dbErr) {
+        if (dbErr) return res.status(400).json({ error: dbErr.message });
+        logAudit(req.admin.user, 'admin_user_created', 'admin_user', this.lastID, { username, role: safeRole });
+        res.json({ id: this.lastID, username, role: safeRole });
+      }
+    );
+  });
+});
+
+app.put('/api/admin/admin-users/:id/active', requireAdmin, requireSuperAdmin, (req, res) => {
+  const active = req.body?.active ? 1 : 0;
+  db.run("UPDATE admin_users SET active=? WHERE id=?", [active, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    logAudit(req.admin.user, active ? 'admin_user_activated' : 'admin_user_deactivated', 'admin_user', req.params.id, {});
+    res.json({ success: true });
+  });
+});
+
+app.delete('/api/admin/admin-users/:id', requireAdmin, requireSuperAdmin, (req, res) => {
+  db.run("DELETE FROM admin_users WHERE id=?", [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    logAudit(req.admin.user, 'admin_user_deleted', 'admin_user', req.params.id, {});
+    res.json({ success: true });
+  });
+});
 
 // ---- Admin: Get all places (no filters) ----
 app.get('/api/admin/places', requireAdmin, (req, res) => {

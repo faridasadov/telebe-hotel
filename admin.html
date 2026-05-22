@@ -38,6 +38,8 @@
       .status-pending { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
       .muted-small { display: block; color: var(--text-muted); font-size: 12px; margin-top: 4px; }
       .provider-meta { display: grid; gap: 3px; }
+      .admin-search { width: 100%; max-width: 360px; padding: 10px 16px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--r-pill); background: color-mix(in srgb, var(--bg-card) 90%, transparent); color: var(--text); font-size: var(--fs-sm); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+      .admin-search:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13,148,136,.15); }
     </style>
   </head>
   <body>
@@ -71,6 +73,8 @@
         <div class="d-card"><h3>Ümumi Yataq</h3><strong id="statSpots">-</strong></div>
         <div class="d-card"><h3>Boş Yer</h3><strong id="statFree">-</strong></div>
         <div class="d-card"><h3>Gözləyən Müraciət</h3><strong id="statPending">-</strong></div>
+        <div class="d-card"><h3>Təsdiqlənmiş Tələbə</h3><strong id="statStudents">-</strong></div>
+        <div class="d-card"><h3>Aktiv Ev Sahibi</h3><strong id="statProviders">-</strong></div>
       </div>
 
       <div class="tab-nav">
@@ -79,22 +83,25 @@
         <div class="tab-btn" data-tab="providers">Ev sahibləri</div>
         <div class="tab-btn" data-tab="students">Tələbələr</div>
         <div class="tab-btn" data-tab="providerListings">Sahib elanları</div>
-        <div class="tab-btn" data-tab="verification">Verification</div>
+        <div class="tab-btn" data-tab="verification">Yoxlama növbəsi</div>
         <div class="tab-btn" data-tab="reports">Reportlar</div>
-        <div class="tab-btn" data-tab="audit">Audit</div>
+        <div class="tab-btn" data-tab="audit">Fəaliyyət jurnalı</div>
+        <div class="tab-btn" data-tab="adminUsers">Admin hesabları</div>
       </div>
 
       <div id="tabPlaces">
         <div style="display: flex; justify-content: space-between; align-items: center">
           <h2>Mövcud Obyektlər</h2>
-          <span class="muted-small">Yeni elanlar ev sahibi kabinetindən göndərilir və “Sahib elanları” bölməsində təsdiqlənir.</span>
+          <span class="muted-small">Yeni elanlar ev sahibi kabinetindən göndərilir və "Sahib elanları" bölməsində təsdiqlənir.</span>
         </div>
+        <input id="searchPlaces" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
           <thead>
             <tr>
               <th>ID</th>
               <th>Ad</th>
               <th>Şəhər</th>
+              <th>Tip</th>
               <th>Qiymət</th>
               <th>Doluluq (Q/O)</th>
               <th>Əməliyyatlar</th>
@@ -106,6 +113,7 @@
 
       <div id="tabBookings" style="display: none">
         <h2>Rezervasiya Müraciətləri</h2>
+        <input id="searchBookings" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
           <thead>
             <tr>
@@ -124,6 +132,7 @@
 
       <div id="tabProviders" style="display: none">
         <h2>Ev sahibi qeydiyyatları</h2>
+        <input id="searchProviders" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
           <thead>
             <tr>
@@ -140,6 +149,7 @@
 
       <div id="tabStudents" style="display: none">
         <h2>Tələbə qeydiyyatları</h2>
+        <input id="searchStudents" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
           <thead>
             <tr>
@@ -156,6 +166,7 @@
 
       <div id="tabProviderListings" style="display: none">
         <h2>Sahiblərdən gələn elanlar</h2>
+        <input id="searchListings" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
           <thead>
             <tr>
@@ -171,31 +182,60 @@
       </div>
 
       <div id="tabVerification" style="display: none">
-        <h2>Verification queue</h2>
+        <h2>Yoxlama növbəsi</h2>
         <div class="dashboard-cards">
           <div class="d-card"><h3>Gözləyən sahiblər</h3><strong id="verifyProviderCount">-</strong></div>
           <div class="d-card"><h3>Gözləyən tələbələr</h3><strong id="verifyStudentCount">-</strong></div>
           <div class="d-card"><h3>Gözləyən elanlar</h3><strong id="verifyListingCount">-</strong></div>
         </div>
+        <input id="searchVerification" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
-          <thead><tr><th>Tip</th><th>Məlumat</th><th>Tarix</th><th>Əməliyyat</th></tr></thead>
+          <thead><tr><th>Tip</th><th>Məlumat</th><th>Tarix</th><th>Əməliyyatlar</th></tr></thead>
           <tbody id="verificationTableBody"></tbody>
         </table>
       </div>
 
       <div id="tabReports" style="display: none">
         <h2>Saxta elan reportları</h2>
+        <input id="searchReports" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
-          <thead><tr><th>Tarix</th><th>Elan</th><th>Report</th><th>Status</th><th>Əməliyyat</th></tr></thead>
+          <thead><tr><th>Tarix</th><th>Elan</th><th>Report</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
           <tbody id="reportsTableBody"></tbody>
         </table>
       </div>
 
       <div id="tabAudit" style="display: none">
-        <h2>Audit log</h2>
+        <h2>Fəaliyyət jurnalı</h2>
+        <input id="searchAudit" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
-          <thead><tr><th>Tarix</th><th>Actor</th><th>Action</th><th>Entity</th><th>Detal</th></tr></thead>
+          <thead><tr><th>Tarix</th><th>İstifadəçi</th><th>Əməliyyat</th><th>Obyekt</th><th>Detal</th></tr></thead>
           <tbody id="auditTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="tabAdminUsers" style="display: none">
+        <h2>Admin hesabları</h2>
+        <div style="background:color-mix(in srgb,var(--bg-card) 92%,transparent);border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;margin-bottom:24px;max-width:520px">
+          <h3 style="margin:0 0 16px">Yeni admin əlavə et</h3>
+          <form id="adminUserForm" class="form-grid" style="grid-template-columns:1fr 1fr;gap:16px">
+            <label class="field"><span>İstifadəçi adı</span><input name="username" required autocomplete="off"></label>
+            <label class="field"><span>Şifrə</span><input name="password" type="password" required autocomplete="new-password"></label>
+            <label class="field"><span>Rol</span>
+              <select name="role">
+                <option value="moderator">Moderator</option>
+                <option value="superadmin">Super Admin</option>
+              </select>
+            </label>
+            <div style="display:flex;align-items:flex-end">
+              <button type="submit" class="btn btn-primary" style="width:100%">Əlavə et</button>
+            </div>
+            <p id="adminUserError" class="login-error" style="grid-column:span 2;margin:0"></p>
+          </form>
+        </div>
+        <input id="searchAdminUsers" class="admin-search" type="text" placeholder="Axtar...">
+        <table class="admin-table">
+          <thead><tr><th>ID</th><th>İstifadəçi adı</th><th>Rol</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
+          <tbody id="adminUsersTableBody"></tbody>
         </table>
       </div>
 
@@ -265,6 +305,6 @@
       </div>
     </div>
 
-    <script src="assets/admin-panel.js?v=20260521-final"></script>
+    <script src="assets/admin-panel.js?v=20260522"></script>
   </body>
 </html>
