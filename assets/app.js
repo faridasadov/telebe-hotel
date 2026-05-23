@@ -680,7 +680,7 @@ function renderModal() {
               <div class="uni-name">${escHtml(u.code)}</div>
               <small style="color: var(--text-muted)">${escHtml(u.name)}</small>
             </div>
-            <span class="uni-distance">${ICON.walk}${u.distance_min} ${t("modal.minWalk")}</span>
+            <span class="uni-distance">${ICON.walk}${u.distance_min} ${t("modal.minWalk")}${p.lat && p.lng && u.lat && u.lng ? ` · ${haversineKm(p.lat, p.lng, u.lat, u.lng).toFixed(1)} km` : ""}</span>
           </div>
         `).join("")}
       </div>
@@ -757,7 +757,19 @@ function renderModal() {
     <div class="modal-header">
       <div>
         <h2 id="modalTitle">${escHtml(p.name)}</h2>
-        <small>${ICON.pin}<span>${escHtml(p.address || cityName(p.city))}</span></small>
+        <small class="modal-address-row">
+          ${ICON.pin}
+          <span>${escHtml(p.address || cityName(p.city))}</span>
+          ${p.lat && p.lng
+            ? `<a class="modal-map-link" href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" aria-label="Google Maps-də aç">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                Xəritədə gör
+              </a>`
+            : `<a class="modal-map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((p.address || cityName(p.city)) + ' Azərbaycan')}" target="_blank" rel="noopener" aria-label="Google Maps-də axtar">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                Xəritədə gör
+              </a>`}
+        </small>
         <div class="gender-breakdown" style="margin-top: var(--sp-2); border: 1px solid var(--border)">
           <span>${t("card.gender.occupied", { f: p.female_occupied, m: p.male_occupied })}</span>
           <strong class="vacancy-info">${
@@ -776,6 +788,22 @@ function renderModal() {
         <span>${t("modal.perMonth")}</span>
       </div>
     </div>
+
+    ${p.lat && p.lng ? `
+      <div class="modal-section modal-minimap">
+        <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" class="modal-minimap-link" aria-label="Google Maps-də aç">
+          <img
+            src="https://maps.googleapis.com/maps/api/staticmap?center=${p.lat},${p.lng}&zoom=15&size=600x200&maptype=roadmap&markers=color:red%7C${p.lat},${p.lng}&scale=2"
+            onerror="this.parentElement.innerHTML='<div class=modal-minimap-fallback><svg width=20 height=20 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=2><path d=&quot;M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z&quot;/><circle cx=12 cy=9 r=2.5/></svg><span>${escHtml(p.address || cityName(p.city))}</span><span class=modal-minimap-cta>Google Maps-də aç ↗</span></div>'"
+            alt="Yerləşmə xəritəsi"
+            class="modal-minimap-img">
+          <span class="modal-minimap-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            Google Maps-də aç
+          </span>
+        </a>
+      </div>
+    ` : ""}
 
     ${p.description ? `
       <div class="modal-section">
@@ -1051,6 +1079,44 @@ document.querySelector("#trackingForm")?.addEventListener("submit", async (e) =>
     note.style.color = "var(--danger)";
   }
 });
+
+// ---------- Geolocation / Near Me ----------
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+let _userLat = null, _userLng = null;
+
+document.getElementById("nearMeBtn")?.addEventListener("click", () => {
+  const btn = document.getElementById("nearMeBtn");
+  if (!navigator.geolocation) { alert("Brauzeriniz geolokasiyanı dəstəkləmir."); return; }
+  btn.textContent = "...";
+  btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(pos => {
+    _userLat = pos.coords.latitude;
+    _userLng = pos.coords.longitude;
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="5"/></svg> Mənə yaxın`;
+    btn.classList.add("near-me-active");
+    applyNearMeSort();
+  }, () => {
+    btn.textContent = "Məkan icazəsi verilmədi";
+    btn.disabled = false;
+    setTimeout(() => { btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Mənə yaxın`; }, 2500);
+  });
+});
+
+function applyNearMeSort() {
+  if (_userLat == null || !_allPlaces.length) return;
+  _allPlaces.sort((a, b) => {
+    const dA = a.lat && a.lng ? haversineKm(_userLat, _userLng, a.lat, a.lng) : 9999;
+    const dB = b.lat && b.lng ? haversineKm(_userLat, _userLng, b.lat, b.lng) : 9999;
+    return dA - dB;
+  });
+  renderPage(1);
+}
 
 // ---------- Custom SVG Map ----------
 // Azerbaijan cities: left% = (lon-44.8)/5.9*100, top% = (41.9-lat)/3.6*100
