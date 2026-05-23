@@ -2267,6 +2267,61 @@ app.delete('/api/superadmin/org-admins/:id', requireSuperAdminAuth, (req, res) =
   });
 });
 
+// ── Superadmin: platform audit logs ──────────────────────────────────────────
+app.get('/api/superadmin/audit-logs', requireSuperAdminAuth, (req, res) => {
+  const limit  = Math.min(parseInt(req.query.limit)  || 200, 500);
+  const offset = parseInt(req.query.offset) || 0;
+  const orgId  = req.query.org_id ? parseInt(req.query.org_id) : null;
+  const where  = orgId
+    ? `WHERE (au.organization_id = ${orgId} OR (al.entity_type = 'organization' AND CAST(al.entity_id AS INTEGER) = ${orgId}))`
+    : '';
+  db.all(`
+    SELECT al.id, al.actor, al.action, al.entity_type, al.entity_id, al.meta, al.created_at,
+           o.name AS org_name
+    FROM audit_logs al
+    LEFT JOIN admin_users au ON al.actor = au.username
+    LEFT JOIN organizations o ON au.organization_id = o.id
+    ${where}
+    ORDER BY al.created_at DESC
+    LIMIT ? OFFSET ?
+  `, [limit, offset], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// ── Superadmin: org booking trend (last 7 days) ───────────────────────────────
+app.get('/api/superadmin/organizations/:id/recent-bookings', requireSuperAdminAuth, (req, res) => {
+  db.all(`
+    SELECT date(created_at) AS day, COUNT(*) AS count
+    FROM bookings
+    WHERE organization_id = ? AND created_at >= date('now', '-6 days')
+    GROUP BY date(created_at)
+    ORDER BY day ASC
+  `, [req.params.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// ── Superadmin: bulk org status ───────────────────────────────────────────────
+app.put('/api/superadmin/org-bulk-status', requireSuperAdminAuth, (req, res) => {
+  const { ids, status } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length || !status)
+    return res.status(400).json({ error: 'ids[] və status tələb olunur' });
+  const allowed = ['Active', 'Suspended', 'Pending', 'Archived'];
+  if (!allowed.includes(status)) return res.status(400).json({ error: 'Yanlış status' });
+  const ph = ids.map(() => '?').join(',');
+  db.run(`UPDATE organizations SET status=? WHERE id IN (${ph})`,
+    [status, ...ids.map(Number)],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.superadmin.user, `org_bulk_${status.toLowerCase()}`, 'organization', null, { ids, status });
+      res.json({ updated: this.changes });
+    }
+  );
+});
+
 // ---- Admin: Org moderator management ----
 app.get('/api/admin/org/moderators', requireAdmin, requireOrgAdmin, (req, res) => {
   db.all(

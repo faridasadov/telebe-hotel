@@ -16,12 +16,14 @@ function showLogin(msg = '') {
   $('#saLoginPage').hidden = false;
   $('#saApp').hidden = true;
   if (msg) $('#saLoginNote').textContent = msg;
+  clearTimeout(_timeoutHandle);
 }
 
 function showApp() {
   $('#saLoginPage').hidden = true;
   $('#saApp').hidden = false;
   $('#saGuard').textContent = '';
+  resetActivityTimer();
 }
 
 function note(id, text, ok = false) {
@@ -31,23 +33,71 @@ function note(id, text, ok = false) {
   el.style.color = ok ? 'var(--success)' : 'var(--danger)';
 }
 
+// ── Session timeout (30 min) ──────────────────────────────────────────────────
+const TIMEOUT_MS = 30 * 60 * 1000;
+let _timeoutHandle = null;
+let _timeoutStart  = null;
+
+function resetActivityTimer() {
+  clearTimeout(_timeoutHandle);
+  _timeoutStart = Date.now();
+  _timeoutHandle = setTimeout(() => {
+    saFetch(`${API}/superadmin/logout`, { method: 'POST' }).catch(() => {});
+    showLogin('30 dəqiqəlik aktivsizlik — yenidən daxil olun.');
+  }, TIMEOUT_MS);
+}
+
+// Countdown display
+setInterval(() => {
+  if (!_timeoutStart || $('#saApp').hidden) return;
+  const remaining = Math.max(0, TIMEOUT_MS - (Date.now() - _timeoutStart));
+  const m = Math.floor(remaining / 60000);
+  const s = Math.floor((remaining % 60000) / 1000);
+  const bar = $('#saTimeoutBar');
+  if (bar) bar.textContent = `⏱ ${m}:${String(s).padStart(2,'0')}`;
+}, 5000);
+
+['click','keydown','mousemove','touchstart'].forEach(ev =>
+  document.addEventListener(ev, () => { if (!$('#saApp').hidden) resetActivityTimer(); }, { passive: true })
+);
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  const icon = $('#saThemeIcon');
+  if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+$('#saThemeToggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// Init theme icon on load
+(function() {
+  const t = localStorage.getItem('theme') || 'light';
+  const icon = $('#saThemeIcon');
+  if (icon) icon.textContent = t === 'dark' ? '☀️' : '🌙';
+})();
+
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 const VIEWS = {
   dashboard: { el: '#viewDashboard', title: 'Dashboard' },
   orgs:      { el: '#viewOrgs',      title: 'Orqanizasiyalar' },
+  auditlog:  { el: '#viewAuditlog',  title: 'Audit Log' },
   settings:  { el: '#viewSettings',  title: 'Sistem ayarları' },
 };
 
 function switchView(name) {
-  Object.entries(VIEWS).forEach(([key, v]) => {
-    $(v.el).hidden = key !== name;
-  });
+  Object.entries(VIEWS).forEach(([key, v]) => { $(v.el).hidden = key !== name; });
   document.querySelectorAll('.sa-nav-btn[data-view]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.view === name);
   });
   $('#saPageTitle').textContent = VIEWS[name]?.title ?? name;
-  if (name === 'settings') loadSettings();
-  if (name === 'orgs') loadOrgs();
+  if (name === 'settings')  loadSettings();
+  if (name === 'orgs')      loadOrgs();
+  if (name === 'auditlog')  loadAuditLogs();
 }
 
 document.querySelectorAll('.sa-nav-btn[data-view]').forEach(btn => {
@@ -55,10 +105,7 @@ document.querySelectorAll('.sa-nav-btn[data-view]').forEach(btn => {
 });
 
 // ── Refresh ───────────────────────────────────────────────────────────────────
-window.refreshAll = async function() {
-  await Promise.all([loadPlatformStats(), loadOrgs()]);
-};
-$('#btnRefresh').addEventListener('click', () => refreshAll());
+$('#btnRefresh').addEventListener('click', () => Promise.all([loadPlatformStats(), loadOrgs()]));
 
 // ── Platform stats ────────────────────────────────────────────────────────────
 async function loadPlatformStats() {
@@ -67,24 +114,21 @@ async function loadPlatformStats() {
       saFetch(`${API}/superadmin/platform-stats`),
       saFetch(`${API}/superadmin/db-stats`),
     ]);
-    const d = await sRes.json();
+    const d  = await sRes.json();
     const db = await dbRes.json();
     $('#platformStats').innerHTML = [
-      ['📁 Aktiv orqanizasiyalar', d.activeOrgs ?? 0],
-      ['🚫 Bloklanmış / Gözləyən', `${d.suspendedOrgs ?? 0} / ${d.pendingOrgs ?? 0}`],
-      ['🏠 Ümumi elanlar', d.totalPlaces ?? 0],
-      ['📊 Doluluq faizi', `${d.occupancyPct ?? 0}%`],
+      ['📁 Aktiv orqanizasiyalar',   d.activeOrgs ?? 0],
+      ['🚫 Bloklanmış / Gözləyən',   `${d.suspendedOrgs ?? 0} / ${d.pendingOrgs ?? 0}`],
+      ['🏠 Ümumi elanlar',           d.totalPlaces ?? 0],
+      ['📊 Doluluq faizi',           `${d.occupancyPct ?? 0}%`],
       ['⏳ Gözləyən rezervasiyalar', d.pendingBookings ?? 0],
-      ['✅ Təsdiq nisbəti', `${d.approvalRate ?? 0}%`],
-      ['🎓 Aktiv tələbələr', d.approvedStudents ?? 0],
-      ['📄 Sənəd gözləyən', (d.pendingStudents ?? 0) + (d.pendingProviders ?? 0)],
-      ['👥 Admin / Moderator', `${d.activeAdmins ?? 0} / ${d.activeModerators ?? 0}`],
-      ['💾 Baza ölçüsü', `${db.fileSizeMB ?? 0} MB`],
+      ['✅ Təsdiq nisbəti',          `${d.approvalRate ?? 0}%`],
+      ['🎓 Aktiv tələbələr',         d.approvedStudents ?? 0],
+      ['📄 Sənəd gözləyən',         (d.pendingStudents ?? 0) + (d.pendingProviders ?? 0)],
+      ['👥 Admin / Moderator',       `${d.activeAdmins ?? 0} / ${d.activeModerators ?? 0}`],
+      ['💾 Baza ölçüsü',            `${db.fileSizeMB ?? 0} MB`],
     ].map(([label, val]) => `
-      <div class="stat-card">
-        <h4>${label}</h4>
-        <strong>${val}</strong>
-      </div>
+      <div class="stat-card"><h4>${label}</h4><strong>${val}</strong></div>
     `).join('');
   } catch {}
 }
@@ -111,21 +155,24 @@ async function loadOrgs() {
     const res = await saFetch(`${API}/superadmin/organizations`);
     _allOrgs = await res.json();
     renderOrgs(_allOrgs);
+    populateAuditOrgFilter(_allOrgs);
   } catch {}
 }
+
+const TYPE_LABEL = { hostel: 'Yataqxana', university: 'Universitet', hotel: 'Hotel' };
 
 function renderOrgs(orgs) {
   const tbody = $('#orgsBody');
   if (!orgs.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">Heç bir orqanizasiya yoxdur.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">Heç bir orqanizasiya yoxdur.</td></tr>';
     return;
   }
-  const typeLabel = { hostel: 'Yataqxana', university: 'Universitet', hotel: 'Hotel' };
   tbody.innerHTML = orgs.map(o => `
     <tr>
+      <td><input type="checkbox" class="org-chk" data-id="${o.id}"></td>
       <td>
         <strong>${esc(o.name)}</strong>
-        <span class="org-pill">${typeLabel[o.type] || esc(o.type)}</span>
+        <span class="org-pill">${TYPE_LABEL[o.type] || esc(o.type)}</span>
         <div class="mini-stats">
           ${o.contact_email ? `<span>✉ ${esc(o.contact_email)}</span>` : ''}
           ${o.contact_phone ? `<span>📞 ${esc(o.contact_phone)}</span>` : ''}
@@ -145,24 +192,74 @@ function renderOrgs(orgs) {
         o.status === 'Suspended' ? 'badge-err'  :
         o.status === 'Pending'   ? 'badge-warn' : 'badge-muted'
       }">${
-        o.status === 'Active'    ? 'Aktiv'        :
-        o.status === 'Suspended' ? 'Bloklanmış'   :
-        o.status === 'Pending'   ? 'Gözləyir'     : 'Arxivdə'
+        o.status === 'Active'    ? 'Aktiv'      :
+        o.status === 'Suspended' ? 'Bloklanmış' :
+        o.status === 'Pending'   ? 'Gözləyir'   : 'Arxivdə'
       }</span></td>
       <td class="row-acts">
         <button class="btn btn-sm" onclick="openOrgDetail(${o.id})">🔍 Detay</button>
         ${o.status !== 'Active'   ? `<button class="btn btn-sm" style="color:var(--success)" onclick="setOrgStatus(${o.id},'Active')">Aktiv et</button>` : ''}
-        ${o.status === 'Active'   ? `<button class="btn btn-sm" style="color:var(--danger)"  onclick="setOrgStatus(${o.id},'Suspended')">Blokla</button>` : ''}
+        ${o.status === 'Active'   ? `<button class="btn btn-sm" style="color:var(--danger)" onclick="setOrgStatus(${o.id},'Suspended')">Blokla</button>` : ''}
         ${o.status !== 'Archived' ? `<button class="btn btn-sm" style="color:var(--text-muted)" onclick="setOrgStatus(${o.id},'Archived')">Arxivlə</button>` : ''}
       </td>
     </tr>
   `).join('');
+
+  // Re-attach checkbox listeners after render
+  document.querySelectorAll('.org-chk').forEach(chk => {
+    chk.addEventListener('change', updateBulkBar);
+  });
+  $('#chkAll').checked = false;
 }
 
 // ── Org search ────────────────────────────────────────────────────────────────
 $('#orgSearch').addEventListener('input', function() {
   const q = this.value.trim().toLowerCase();
   renderOrgs(q ? _allOrgs.filter(o => o.name.toLowerCase().includes(q)) : _allOrgs);
+});
+
+// ── Bulk select ───────────────────────────────────────────────────────────────
+$('#chkAll').addEventListener('change', function() {
+  document.querySelectorAll('.org-chk').forEach(c => { c.checked = this.checked; });
+  updateBulkBar();
+});
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.org-chk:checked');
+  const bar = $('#bulkBar');
+  bar.hidden = checked.length === 0;
+  $('#bulkCount').textContent = checked.length;
+}
+
+$('#btnBulkClear').addEventListener('click', () => {
+  document.querySelectorAll('.org-chk').forEach(c => { c.checked = false; });
+  $('#chkAll').checked = false;
+  updateBulkBar();
+});
+
+$('#btnBulkApply').addEventListener('click', async () => {
+  const status = $('#bulkStatusSel').value;
+  if (!status) { alert('Status seçin'); return; }
+  const ids = [...document.querySelectorAll('.org-chk:checked')].map(c => parseInt(c.dataset.id));
+  if (!ids.length) return;
+  if (!confirm(`${ids.length} orqanizasiyanın statusunu "${status}" olaraq dəyişmək istəyirsiniz?`)) return;
+  try {
+    const res = await saFetch(`${API}/superadmin/org-bulk-status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, status }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || 'Xəta baş verdi');
+    $('#bulkStatusSel').value = '';
+    document.querySelectorAll('.org-chk').forEach(c => { c.checked = false; });
+    $('#chkAll').checked = false;
+    updateBulkBar();
+    await loadOrgs();
+    await loadPlatformStats();
+  } catch (err) {
+    alert(err.message);
+  }
 });
 
 // ── New org modal ─────────────────────────────────────────────────────────────
@@ -174,8 +271,6 @@ $('#btnNewOrg').addEventListener('click', () => {
 
 window.closeNewOrgModal = function() {
   $('#newOrgModal').setAttribute('aria-hidden', 'true');
-  $('#newOrgForm').reset();
-  note('#newOrgNote', '');
 };
 
 $('#newOrgForm').addEventListener('submit', async (e) => {
@@ -205,6 +300,7 @@ window.openOrgDetail = async function(id) {
   $('#orgDetailModal').setAttribute('aria-hidden', 'false');
   $('#orgDetailTitle').textContent = '…';
   note('#editOrgNote', '');
+  $('#orgMiniChart').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Yüklənir…</span>';
 
   const editForm = $('#editOrgForm');
   try {
@@ -224,7 +320,7 @@ window.openOrgDetail = async function(id) {
 
   $('#newAdminPanel').hidden = true;
   $('#newAdminForm').elements.organization_id.value = id;
-  await loadOrgAdmins(id);
+  await Promise.all([loadOrgAdmins(id), loadOrgRecentBookings(id)]);
 };
 
 window.closeOrgDetail = function() {
@@ -252,6 +348,35 @@ $('#editOrgForm').addEventListener('submit', async (e) => {
     note('#editOrgNote', err.message);
   }
 });
+
+// ── Org mini chart (last 7 days) ──────────────────────────────────────────────
+async function loadOrgRecentBookings(id) {
+  try {
+    const res = await saFetch(`${API}/superadmin/organizations/${id}/recent-bookings`);
+    const rows = await res.json();
+
+    // Build day map for last 7 days
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const map = {};
+    rows.forEach(r => { map[r.day] = r.count; });
+    const counts = days.map(d => map[d] || 0);
+    const max = Math.max(...counts, 1);
+
+    $('#orgMiniChart').innerHTML = counts.map((c, i) => `
+      <div class="mc-col">
+        <div class="mc-bar" style="height:${Math.max(3, Math.round((c / max) * 50))}px" title="${days[i]}: ${c} rezerv"></div>
+        <span class="mc-lbl">${days[i].slice(5)}</span>
+      </div>
+    `).join('');
+  } catch {
+    $('#orgMiniChart').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Məlumat yoxdur</span>';
+  }
+}
 
 // ── Org admins ────────────────────────────────────────────────────────────────
 async function loadOrgAdmins(orgId) {
@@ -287,9 +412,7 @@ window.toggleOrgAdmin = async function(id, active) {
     });
     if (!res.ok) throw new Error('Status dəyişdirilmədi');
     if (_currentOrgId) await loadOrgAdmins(_currentOrgId);
-  } catch (err) {
-    alert(err.message);
-  }
+  } catch (err) { alert(err.message); }
 };
 
 window.deleteOrgAdmin = async function(id) {
@@ -298,12 +421,9 @@ window.deleteOrgAdmin = async function(id) {
     const res = await saFetch(`${API}/superadmin/org-admins/${id}`, { method: 'DELETE' });
     if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Silinmədi'); }
     if (_currentOrgId) await loadOrgAdmins(_currentOrgId);
-  } catch (err) {
-    alert(err.message);
-  }
+  } catch (err) { alert(err.message); }
 };
 
-// ── New admin user ────────────────────────────────────────────────────────────
 $('#btnNewAdminUser').addEventListener('click', () => {
   $('#newAdminPanel').hidden = false;
   note('#newAdminNote', '');
@@ -312,7 +432,6 @@ $('#btnNewAdminUser').addEventListener('click', () => {
 $('#btnCancelAdmin').addEventListener('click', () => {
   $('#newAdminPanel').hidden = true;
   $('#newAdminForm').reset();
-  note('#newAdminNote', '');
   if (_currentOrgId) $('#newAdminForm').elements.organization_id.value = _currentOrgId;
 });
 
@@ -330,11 +449,80 @@ $('#newAdminForm').addEventListener('submit', async (e) => {
     e.target.reset();
     if (_currentOrgId) e.target.elements.organization_id.value = _currentOrgId;
     $('#newAdminPanel').hidden = true;
-    note('#newAdminNote', '');
     if (_currentOrgId) await loadOrgAdmins(_currentOrgId);
   } catch (err) {
     note('#newAdminNote', err.message);
   }
+});
+
+// ── Audit logs ────────────────────────────────────────────────────────────────
+let _auditOffset = 0;
+const AUDIT_LIMIT = 50;
+let _lastAuditRows = 0;
+let _allAuditRows  = [];
+
+function populateAuditOrgFilter(orgs) {
+  const sel = $('#alOrgFilter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Bütün orqanizasiyalar</option>' +
+    orgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+  sel.value = current;
+}
+
+async function loadAuditLogs(reset = true) {
+  if (reset) { _auditOffset = 0; }
+  const orgId = $('#alOrgFilter').value;
+  const params = new URLSearchParams({ limit: AUDIT_LIMIT, offset: _auditOffset });
+  if (orgId) params.set('org_id', orgId);
+  try {
+    const res = await saFetch(`${API}/superadmin/audit-logs?${params}`);
+    _allAuditRows = await res.json();
+    _lastAuditRows = _allAuditRows.length;
+    renderAuditLogs(_allAuditRows);
+    const page = Math.floor(_auditOffset / AUDIT_LIMIT) + 1;
+    $('#auditPageInfo').textContent = `Səhifə ${page} · ${_allAuditRows.length} qeyd`;
+    $('#btnAuditPrev').disabled = _auditOffset === 0;
+    $('#btnAuditNext').disabled = _allAuditRows.length < AUDIT_LIMIT;
+  } catch {}
+}
+
+function renderAuditLogs(rows) {
+  const q = $('#alSearch').value.trim().toLowerCase();
+  const filtered = q ? rows.filter(r =>
+    (r.actor||'').toLowerCase().includes(q) ||
+    (r.action||'').toLowerCase().includes(q) ||
+    (r.org_name||'').toLowerCase().includes(q)
+  ) : rows;
+
+  const tbody = $('#auditBody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted)">Qeyd tapılmadı.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => {
+    const meta = (() => { try { return JSON.stringify(JSON.parse(r.meta), null, 0); } catch { return r.meta || ''; } })();
+    const dt = new Date(r.created_at).toLocaleString('az-AZ', { dateStyle:'short', timeStyle:'short' });
+    return `
+      <tr>
+        <td style="white-space:nowrap;font-size:12px">${dt}</td>
+        <td><strong>${esc(r.actor || '—')}</strong></td>
+        <td>${r.org_name ? `<span class="badge badge-info" style="font-size:11px">${esc(r.org_name)}</span>` : '<span style="color:var(--text-muted);font-size:12px">Platform</span>'}</td>
+        <td><code style="font-size:12px;background:var(--bg-subtle);padding:2px 6px;border-radius:4px">${esc(r.action || '')}</code></td>
+        <td style="font-size:12px">${esc(r.entity_type || '')} ${r.entity_id ? `#${r.entity_id}` : ''}</td>
+        <td><span class="al-meta">${esc(meta).slice(0, 80)}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+$('#alOrgFilter').addEventListener('change', () => loadAuditLogs(true));
+$('#alSearch').addEventListener('input', () => renderAuditLogs(_allAuditRows));
+
+$('#btnAuditPrev').addEventListener('click', () => {
+  if (_auditOffset >= AUDIT_LIMIT) { _auditOffset -= AUDIT_LIMIT; loadAuditLogs(false); }
+});
+$('#btnAuditNext').addEventListener('click', () => {
+  if (_lastAuditRows >= AUDIT_LIMIT) { _auditOffset += AUDIT_LIMIT; loadAuditLogs(false); }
 });
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -344,9 +532,7 @@ async function loadSettings() {
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || 'Ayarlar yüklənmədi');
     const form = $('#settingsForm');
-    Object.entries(d).forEach(([k, v]) => {
-      if (form.elements[k]) form.elements[k].value = v || '';
-    });
+    Object.entries(d).forEach(([k, v]) => { if (form.elements[k]) form.elements[k].value = v || ''; });
   } catch {}
 }
 
@@ -368,7 +554,7 @@ $('#settingsForm').addEventListener('submit', async (e) => {
   }
 });
 
-// ── Login / Logout ─────────────────────────────────────────────────────────────
+// ── Login / Logout ────────────────────────────────────────────────────────────
 $('#saLoginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = Object.fromEntries(new FormData(e.target).entries());
