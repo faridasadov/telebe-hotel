@@ -13,16 +13,14 @@ async function saFetch(url, opts = {}) {
 }
 
 function showLogin(msg = '') {
-  $('#saLogin').hidden = false;
+  $('#saLoginPage').hidden = false;
   $('#saApp').hidden = true;
-  $('#saLogout').hidden = true;
-  $('#saGuard').textContent = msg;
+  if (msg) $('#saLoginNote').textContent = msg;
 }
 
 function showApp() {
-  $('#saLogin').hidden = true;
+  $('#saLoginPage').hidden = true;
   $('#saApp').hidden = false;
-  $('#saLogout').hidden = false;
   $('#saGuard').textContent = '';
 }
 
@@ -33,17 +31,34 @@ function note(id, text, ok = false) {
   el.style.color = ok ? 'var(--success)' : 'var(--danger)';
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-document.querySelectorAll('.tab-btn').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    const name = tab.dataset.tab;
-    $('#tabOrgs').hidden = name !== 'orgs';
-    $('#tabSettings').hidden = name !== 'settings';
-    if (name === 'settings') loadSettings();
+// ── Sidebar nav ───────────────────────────────────────────────────────────────
+const VIEWS = {
+  dashboard: { el: '#viewDashboard', title: 'Dashboard' },
+  orgs:      { el: '#viewOrgs',      title: 'Orqanizasiyalar' },
+  settings:  { el: '#viewSettings',  title: 'Sistem ayarları' },
+};
+
+function switchView(name) {
+  Object.entries(VIEWS).forEach(([key, v]) => {
+    $(v.el).hidden = key !== name;
   });
+  document.querySelectorAll('.sa-nav-btn[data-view]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === name);
+  });
+  $('#saPageTitle').textContent = VIEWS[name]?.title ?? name;
+  if (name === 'settings') loadSettings();
+  if (name === 'orgs') loadOrgs();
+}
+
+document.querySelectorAll('.sa-nav-btn[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
+
+// ── Refresh ───────────────────────────────────────────────────────────────────
+window.refreshAll = async function() {
+  await Promise.all([loadPlatformStats(), loadOrgs()]);
+};
+$('#btnRefresh').addEventListener('click', () => refreshAll());
 
 // ── Platform stats ────────────────────────────────────────────────────────────
 async function loadPlatformStats() {
@@ -55,16 +70,16 @@ async function loadPlatformStats() {
     const d = await sRes.json();
     const db = await dbRes.json();
     $('#platformStats').innerHTML = [
-      ['Aktiv orqanizasiyalar', d.activeOrgs ?? 0],
-      ['Bloklanmış / Gözləyən', `${d.suspendedOrgs ?? 0} / ${d.pendingOrgs ?? 0}`],
-      ['Ümumi elanlar', d.totalPlaces ?? 0],
-      ['Doluluq faizi', `${d.occupancyPct ?? 0}%`],
-      ['Gözləyən rezervasiyalar', d.pendingBookings ?? 0],
-      ['Təsdiq nisbəti', `${d.approvalRate ?? 0}%`],
-      ['Aktiv tələbələr', d.approvedStudents ?? 0],
-      ['Sənəd gözləyən', (d.pendingStudents ?? 0) + (d.pendingProviders ?? 0)],
-      ['Admin / Moderator', `${d.activeAdmins ?? 0} / ${d.activeModerators ?? 0}`],
-      ['Baza ölçüsü', `${db.fileSizeMB ?? 0} MB`],
+      ['📁 Aktiv orqanizasiyalar', d.activeOrgs ?? 0],
+      ['🚫 Bloklanmış / Gözləyən', `${d.suspendedOrgs ?? 0} / ${d.pendingOrgs ?? 0}`],
+      ['🏠 Ümumi elanlar', d.totalPlaces ?? 0],
+      ['📊 Doluluq faizi', `${d.occupancyPct ?? 0}%`],
+      ['⏳ Gözləyən rezervasiyalar', d.pendingBookings ?? 0],
+      ['✅ Təsdiq nisbəti', `${d.approvalRate ?? 0}%`],
+      ['🎓 Aktiv tələbələr', d.approvedStudents ?? 0],
+      ['📄 Sənəd gözləyən', (d.pendingStudents ?? 0) + (d.pendingProviders ?? 0)],
+      ['👥 Admin / Moderator', `${d.activeAdmins ?? 0} / ${d.activeModerators ?? 0}`],
+      ['💾 Baza ölçüsü', `${db.fileSizeMB ?? 0} MB`],
     ].map(([label, val]) => `
       <div class="stat-card">
         <h4>${label}</h4>
@@ -82,70 +97,86 @@ window.setOrgStatus = async function(id, status) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-    if (!res.ok) { const d = await res.json().catch(()=>({})); alert(d.error || 'Dəyişdirilmədi'); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Dəyişdirilmədi'); return; }
     await loadOrgs();
     await loadPlatformStats();
   } catch {}
 };
 
 // ── Organizations ─────────────────────────────────────────────────────────────
+let _allOrgs = [];
+
 async function loadOrgs() {
   try {
     const res = await saFetch(`${API}/superadmin/organizations`);
-    const orgs = await res.json();
-    const tbody = $('#orgsBody');
-    if (!orgs.length) {
-      tbody.innerHTML = '<tr><td colspan="4">Heç bir orqanizasiya yoxdur.</td></tr>';
-      return;
-    }
-    const typeLabel = { hostel: 'Yataqxana', university: 'Universitet', hotel: 'Hotel' };
-    tbody.innerHTML = orgs.map(o => `
-      <tr>
-        <td>
-          <strong>${esc(o.name)}</strong><br>
-          <small>${typeLabel[o.type] || esc(o.type)}</small>
-          <div class="mini-stats">
-            ${o.contact_email ? `<span>${esc(o.contact_email)}</span>` : ''}
-            ${o.contact_phone ? `<span>${esc(o.contact_phone)}</span>` : ''}
-          </div>
-        </td>
-        <td>
-          <div class="mini-stats">
-            <span>${o.places_count ?? 0} elan</span>
-            <span>${o.free_spots ?? 0} boş yer</span>
-            <span>${o.booking_count ?? 0} rezervasiya</span>
-            <span>${o.admin_count ?? 0} admin</span>
-            <span>${o.moderator_count ?? 0} moderator</span>
-          </div>
-        </td>
-        <td><span class="badge ${
-          o.status === 'Active' ? 'badge-ok' :
-          o.status === 'Suspended' ? 'badge-err' :
-          o.status === 'Pending' ? 'badge-warn' : 'badge-muted'
-        }">${o.status === 'Active' ? 'Aktiv' : o.status === 'Suspended' ? 'Bloklanmış' : o.status === 'Pending' ? 'Gözləyir' : 'Arxivdə'}</span></td>
-        <td class="row-acts">
-          <button class="btn btn-sm" onclick="openOrgDetail(${o.id}, ${JSON.stringify(esc(o.name))})">Detay</button>
-          ${o.status !== 'Active'     ? `<button class="btn btn-sm" style="color:var(--success)" onclick="setOrgStatus(${o.id},'Active')">Aktiv et</button>` : ''}
-          ${o.status === 'Active'     ? `<button class="btn btn-sm" style="color:var(--danger)"  onclick="setOrgStatus(${o.id},'Suspended')">Blokla</button>` : ''}
-          ${o.status !== 'Archived'   ? `<button class="btn btn-sm" style="color:var(--text-muted)" onclick="setOrgStatus(${o.id},'Archived')">Arxivlə</button>` : ''}
-        </td>
-      </tr>
-    `).join('');
+    _allOrgs = await res.json();
+    renderOrgs(_allOrgs);
   } catch {}
 }
 
-// ── New org form ──────────────────────────────────────────────────────────────
-$('#btnNewOrg').addEventListener('click', () => {
-  $('#newOrgPanel').hidden = false;
-  $('#btnNewOrg').hidden = true;
+function renderOrgs(orgs) {
+  const tbody = $('#orgsBody');
+  if (!orgs.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">Heç bir orqanizasiya yoxdur.</td></tr>';
+    return;
+  }
+  const typeLabel = { hostel: 'Yataqxana', university: 'Universitet', hotel: 'Hotel' };
+  tbody.innerHTML = orgs.map(o => `
+    <tr>
+      <td>
+        <strong>${esc(o.name)}</strong>
+        <span class="org-pill">${typeLabel[o.type] || esc(o.type)}</span>
+        <div class="mini-stats">
+          ${o.contact_email ? `<span>✉ ${esc(o.contact_email)}</span>` : ''}
+          ${o.contact_phone ? `<span>📞 ${esc(o.contact_phone)}</span>` : ''}
+        </div>
+      </td>
+      <td>
+        <div class="mini-stats">
+          <span>🏠 ${o.places_count ?? 0} elan</span>
+          <span>🔓 ${o.free_spots ?? 0} boş</span>
+          <span>📋 ${o.booking_count ?? 0} rezerv</span>
+          <span>👤 ${o.admin_count ?? 0} admin</span>
+          <span>🛡 ${o.moderator_count ?? 0} mod</span>
+        </div>
+      </td>
+      <td><span class="badge ${
+        o.status === 'Active'    ? 'badge-ok'   :
+        o.status === 'Suspended' ? 'badge-err'  :
+        o.status === 'Pending'   ? 'badge-warn' : 'badge-muted'
+      }">${
+        o.status === 'Active'    ? 'Aktiv'        :
+        o.status === 'Suspended' ? 'Bloklanmış'   :
+        o.status === 'Pending'   ? 'Gözləyir'     : 'Arxivdə'
+      }</span></td>
+      <td class="row-acts">
+        <button class="btn btn-sm" onclick="openOrgDetail(${o.id})">🔍 Detay</button>
+        ${o.status !== 'Active'   ? `<button class="btn btn-sm" style="color:var(--success)" onclick="setOrgStatus(${o.id},'Active')">Aktiv et</button>` : ''}
+        ${o.status === 'Active'   ? `<button class="btn btn-sm" style="color:var(--danger)"  onclick="setOrgStatus(${o.id},'Suspended')">Blokla</button>` : ''}
+        ${o.status !== 'Archived' ? `<button class="btn btn-sm" style="color:var(--text-muted)" onclick="setOrgStatus(${o.id},'Archived')">Arxivlə</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── Org search ────────────────────────────────────────────────────────────────
+$('#orgSearch').addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  renderOrgs(q ? _allOrgs.filter(o => o.name.toLowerCase().includes(q)) : _allOrgs);
 });
 
-$('#btnCancelOrg').addEventListener('click', () => {
-  $('#newOrgPanel').hidden = true;
-  $('#btnNewOrg').hidden = false;
+// ── New org modal ─────────────────────────────────────────────────────────────
+$('#btnNewOrg').addEventListener('click', () => {
+  $('#newOrgModal').setAttribute('aria-hidden', 'false');
   $('#newOrgForm').reset();
   note('#newOrgNote', '');
 });
+
+window.closeNewOrgModal = function() {
+  $('#newOrgModal').setAttribute('aria-hidden', 'true');
+  $('#newOrgForm').reset();
+  note('#newOrgNote', '');
+};
 
 $('#newOrgForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -158,10 +189,7 @@ $('#newOrgForm').addEventListener('submit', async (e) => {
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(payload.error || 'Yaratmaq olmadı');
-    e.target.reset();
-    $('#newOrgPanel').hidden = true;
-    $('#btnNewOrg').hidden = false;
-    note('#newOrgNote', '');
+    closeNewOrgModal();
     await loadOrgs();
     await loadPlatformStats();
   } catch (err) {
@@ -169,14 +197,14 @@ $('#newOrgForm').addEventListener('submit', async (e) => {
   }
 });
 
-// ── Org detail panel ──────────────────────────────────────────────────────────
+// ── Org detail modal ──────────────────────────────────────────────────────────
 let _currentOrgId = null;
 
-window.openOrgDetail = async function(id, name) {
+window.openOrgDetail = async function(id) {
   _currentOrgId = id;
-  $('#orgDetailTitle').textContent = name;
-  $('#orgDetail').hidden = false;
-  $('#orgDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#orgDetailModal').setAttribute('aria-hidden', 'false');
+  $('#orgDetailTitle').textContent = '…';
+  note('#editOrgNote', '');
 
   const editForm = $('#editOrgForm');
   try {
@@ -184,6 +212,7 @@ window.openOrgDetail = async function(id, name) {
     const orgs = await res.json();
     const org = orgs.find(o => o.id === id);
     if (org) {
+      $('#orgDetailTitle').textContent = org.name;
       editForm.elements.id.value = org.id;
       editForm.elements.name.value = org.name || '';
       editForm.elements.type.value = org.type || 'hostel';
@@ -195,14 +224,13 @@ window.openOrgDetail = async function(id, name) {
 
   $('#newAdminPanel').hidden = true;
   $('#newAdminForm').elements.organization_id.value = id;
-  note('#editOrgNote', '');
   await loadOrgAdmins(id);
 };
 
-$('#btnCloseDetail').addEventListener('click', () => {
-  $('#orgDetail').hidden = true;
+window.closeOrgDetail = function() {
+  $('#orgDetailModal').setAttribute('aria-hidden', 'true');
   _currentOrgId = null;
-});
+};
 
 $('#editOrgForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -217,7 +245,7 @@ $('#editOrgForm').addEventListener('submit', async (e) => {
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(payload.error || 'Saxlanmadı');
-    note('#editOrgNote', 'Saxlandı.', true);
+    note('#editOrgNote', '✓ Saxlandı.', true);
     $('#orgDetailTitle').textContent = data.name;
     await loadOrgs();
   } catch (err) {
@@ -232,13 +260,13 @@ async function loadOrgAdmins(orgId) {
     const users = await res.json();
     const tbody = $('#orgAdminsBody');
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="5">İstifadəçi yoxdur.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">İstifadəçi yoxdur.</td></tr>';
       return;
     }
     tbody.innerHTML = users.map(u => `
       <tr>
-        <td>${esc(u.username)}</td>
-        <td>${esc(u.full_name || '')}</td>
+        <td><strong>${esc(u.username)}</strong></td>
+        <td>${esc(u.full_name || '—')}</td>
         <td><span class="badge ${u.role === 'admin' ? 'badge-info' : 'badge-muted'}">${u.role === 'admin' ? 'Admin' : 'Moderator'}</span></td>
         <td><span class="badge ${u.active ? 'badge-ok' : 'badge-err'}">${u.active ? 'Aktiv' : 'Deaktiv'}</span></td>
         <td class="row-acts">
@@ -275,7 +303,7 @@ window.deleteOrgAdmin = async function(id) {
   }
 };
 
-// ── New admin user form ────────────────────────────────────────────────────────
+// ── New admin user ────────────────────────────────────────────────────────────
 $('#btnNewAdminUser').addEventListener('click', () => {
   $('#newAdminPanel').hidden = false;
   note('#newAdminNote', '');
@@ -285,6 +313,7 @@ $('#btnCancelAdmin').addEventListener('click', () => {
   $('#newAdminPanel').hidden = true;
   $('#newAdminForm').reset();
   note('#newAdminNote', '');
+  if (_currentOrgId) $('#newAdminForm').elements.organization_id.value = _currentOrgId;
 });
 
 $('#newAdminForm').addEventListener('submit', async (e) => {
@@ -333,7 +362,7 @@ $('#settingsForm').addEventListener('submit', async (e) => {
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(payload.error || 'Saxlanmadı');
     e.target.elements.smtp_pass.value = '';
-    note('#settingsNote', 'Ayarlar saxlandı.', true);
+    note('#settingsNote', '✓ Ayarlar saxlandı.', true);
   } catch (err) {
     note('#settingsNote', err.message);
   }

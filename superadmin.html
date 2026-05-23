@@ -8,165 +8,362 @@
     <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
     <link rel="stylesheet" href="assets/panel.css?v=20260524" />
     <style>
-      body { min-height: 100vh; }
       [hidden] { display: none !important; }
-      .mini-stats { display: flex; gap: 10px; font-size: 12px; color: var(--text-muted); margin-top: 4px; flex-wrap: wrap; }
+      body { min-height: 100vh; margin: 0; }
+
+      /* ── cPanel layout ─────────────────────────────────────── */
+      .sa-layout { display: flex; min-height: 100vh; }
+
+      .sa-sidebar {
+        width: 230px; flex-shrink: 0;
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        display: flex; flex-direction: column;
+        position: sticky; top: 0; height: 100vh; overflow-y: auto;
+      }
+      .sa-brand {
+        padding: 22px 20px 18px;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+      }
+      .sa-brand strong {
+        display: block; font-size: 17px; font-weight: 800; color: #fff;
+      }
+      .sa-brand span {
+        font-size: 11px; color: rgba(255,255,255,.4);
+        text-transform: uppercase; letter-spacing: .1em;
+      }
+      .sa-nav { flex: 1; padding: 10px 0; }
+      .sa-nav-section {
+        padding: 10px 18px 4px;
+        font-size: 10px; font-weight: 700;
+        color: rgba(255,255,255,.3);
+        text-transform: uppercase; letter-spacing: .1em;
+      }
+      .sa-nav-btn {
+        display: flex; align-items: center; gap: 11px;
+        width: 100%; padding: 11px 20px;
+        background: none; border: none; border-left: 3px solid transparent;
+        color: rgba(255,255,255,.6); font-size: 14px; font-weight: 500;
+        cursor: pointer; text-align: left; transition: all .15s;
+      }
+      .sa-nav-btn:hover { background: rgba(255,255,255,.05); color: #fff; }
+      .sa-nav-btn.active {
+        background: rgba(20,184,166,.15); color: #5eead4;
+        border-left-color: #14b8a6;
+      }
+      .sa-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+      .sa-sidebar-foot {
+        padding: 16px;
+        border-top: 1px solid rgba(255,255,255,.08);
+      }
+      .sa-logout-btn {
+        width: 100%; padding: 9px 14px;
+        background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.25);
+        border-radius: 8px; color: #fca5a5; font-size: 13px;
+        cursor: pointer; transition: all .15s; text-align: left;
+      }
+      .sa-logout-btn:hover { background: rgba(239,68,68,.2); color: #fff; }
+
+      /* ── Main area ─────────────────────────────────────────── */
+      .sa-main { flex: 1; min-width: 0; background: var(--bg); display: flex; flex-direction: column; }
+      .sa-topbar {
+        padding: 15px 28px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-card);
+        display: flex; align-items: center; gap: 12px;
+        position: sticky; top: 0; z-index: 50;
+      }
+      .sa-topbar h2 { margin: 0; font-size: 17px; font-weight: 700; flex: 1; }
+      .sa-content { padding: 28px; }
+
+      /* ── Stat cards override (keep gradient) ──────────────── */
+      .mini-stats {
+        display: flex; gap: 10px;
+        font-size: 12px; color: var(--text-muted);
+        margin-top: 4px; flex-wrap: wrap;
+      }
+      .org-pill {
+        display: inline-block; padding: 2px 9px;
+        background: var(--bg-subtle); border: 1px solid var(--border);
+        border-radius: 20px; font-size: 11px; color: var(--text-muted); margin-top: 3px;
+      }
+
+      /* ── Modal ─────────────────────────────────────────────── */
+      .sa-modal {
+        position: fixed; inset: 0; z-index: 900;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding: 48px 16px; overflow-y: auto;
+      }
+      .sa-modal[aria-hidden="true"] { display: none; }
+      .sa-modal-ov { position: fixed; inset: 0; background: rgba(0,0,0,.5); }
+      .sa-modal-box {
+        position: relative; z-index: 1;
+        background: var(--bg-card); border: 1px solid var(--border);
+        border-radius: 14px; width: min(700px, 100%); box-shadow: var(--shadow-xl);
+      }
+      .sa-modal-head {
+        display: flex; align-items: center; gap: 12px;
+        padding: 18px 24px; border-bottom: 1px solid var(--border);
+      }
+      .sa-modal-head h3 { margin: 0; flex: 1; font-size: 17px; }
+      .sa-modal-close {
+        background: none; border: 1px solid var(--border); border-radius: 8px;
+        width: 32px; height: 32px; font-size: 18px; line-height: 1;
+        cursor: pointer; color: var(--text-muted);
+      }
+      .sa-modal-close:hover { background: var(--bg-subtle); color: var(--text); }
+      .sa-modal-body { padding: 24px; }
+      .sa-divider { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+      .sa-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+      .sa-section-head h4 { margin: 0; flex: 1; font-size: 14px; }
+
+      /* ── Login page ────────────────────────────────────────── */
+      .sa-login-page {
+        min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        background: var(--bg);
+      }
+      .sa-login-logo {
+        width: 52px; height: 52px; margin: 0 auto 14px;
+        background: linear-gradient(135deg,var(--brand),var(--accent-2));
+        border-radius: 14px; display: flex; align-items: center; justify-content: center;
+        font-size: 22px; font-weight: 900; color: #fff;
+      }
+
+      /* ── Responsive ────────────────────────────────────────── */
+      @media(max-width: 768px) {
+        .sa-sidebar { width: 56px; }
+        .sa-brand strong, .sa-brand span,
+        .sa-nav-section, .sa-nav-btn span { display: none; }
+        .sa-nav-btn { justify-content: center; padding: 13px; }
+        .sa-nav-icon { width: auto; font-size: 18px; }
+        .sa-content { padding: 16px; }
+        .sa-topbar { padding: 12px 16px; }
+      }
     </style>
   </head>
   <body>
-    <header class="header">
-      <div class="container header-inner">
-        <a class="logo" href="index.html"><span class="logo-mark">S</span><span class="logo-text">Superadmin</span></a>
-        <nav class="nav">
-          <a href="index.html">Sayta qayıt</a>
-          <button class="btn btn-sm" id="saLogout" type="button" hidden>Çıxış</button>
-        </nav>
-      </div>
-    </header>
 
-    <div class="panel-shell">
-      <p id="saGuard" class="note-err"></p>
+  <!-- ════ Login ════════════════════════════════════════════════════════════ -->
+  <div id="saLoginPage" class="sa-login-page">
+    <form id="saLoginForm" class="panel-login-card" style="width:min(420px,94vw)">
+      <div class="sa-login-logo">S</div>
+      <h1 style="margin:0 0 4px;font-size:21px;text-align:center">Superadmin Panel</h1>
+      <p style="margin:0 0 20px;text-align:center;color:var(--text-muted);font-size:13px">StudentStay idarəetmə sistemi</p>
+      <label class="field"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
+      <label class="field"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn btn-primary btn-lg" type="submit" style="width:100%;margin-top:4px">Daxil ol</button>
+      <p class="note-err" id="saLoginNote" style="margin-top:12px;text-align:center"></p>
+    </form>
+  </div>
 
-      <section class="panel-login" id="saLogin">
-        <form id="saLoginForm" class="panel-login-card">
-          <h1 style="margin:0 0 20px">Superadmin giriş</h1>
-          <label class="field"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
-          <label class="field"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
-          <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Daxil ol</button>
-          <p class="note-err" id="saLoginNote" style="margin-top:12px"></p>
-        </form>
-      </section>
+  <!-- ════ App ══════════════════════════════════════════════════════════════ -->
+  <div id="saApp" hidden>
+    <div class="sa-layout">
 
-      <div id="saApp" hidden>
-        <div class="stat-grid" id="platformStats"></div>
-
-        <div class="tab-nav">
-          <div class="tab-btn active" data-tab="orgs">Orqanizasiyalar</div>
-          <div class="tab-btn" data-tab="settings">Sistem ayarları</div>
+      <!-- Sidebar -->
+      <aside class="sa-sidebar">
+        <div class="sa-brand">
+          <strong>StudentStay</strong>
+          <span>Superadmin</span>
         </div>
+        <nav class="sa-nav">
+          <div class="sa-nav-section">Əsas</div>
+          <button class="sa-nav-btn active" data-view="dashboard">
+            <span class="sa-nav-icon">📊</span><span>Dashboard</span>
+          </button>
+          <button class="sa-nav-btn" data-view="orgs">
+            <span class="sa-nav-icon">🏢</span><span>Orqanizasiyalar</span>
+          </button>
+          <div class="sa-nav-section">Sistem</div>
+          <button class="sa-nav-btn" data-view="settings">
+            <span class="sa-nav-icon">⚙️</span><span>Sistem ayarları</span>
+          </button>
+          <button class="sa-nav-btn" onclick="window.location.href='index.html'">
+            <span class="sa-nav-icon">🌐</span><span>Sayta qayıt</span>
+          </button>
+        </nav>
+        <div class="sa-sidebar-foot">
+          <button class="sa-logout-btn" id="saLogout">🚪 &nbsp;Çıxış</button>
+        </div>
+      </aside>
 
-        <!-- Orgs tab -->
-        <div id="tabOrgs">
-          <div class="panel-card-head" style="margin-bottom:16px">
-            <h2 style="margin:0;flex:1">Orqanizasiyalar</h2>
-            <button class="btn btn-primary" id="btnNewOrg">+ Yeni orqanizasiya</button>
+      <!-- Main -->
+      <div class="sa-main">
+        <div class="sa-topbar">
+          <h2 id="saPageTitle">Dashboard</h2>
+          <button class="btn btn-sm" id="btnRefresh" title="Yenilə">↻ Yenilə</button>
+        </div>
+        <div class="sa-content">
+          <p id="saGuard" class="note-err" style="margin-bottom:16px"></p>
+
+          <!-- Dashboard view -->
+          <div id="viewDashboard">
+            <div class="stat-grid" id="platformStats"></div>
           </div>
 
-          <div id="newOrgPanel" class="panel-card" hidden>
-            <h3 style="margin:0 0 16px">Yeni orqanizasiya</h3>
-            <form id="newOrgForm" class="panel-form">
-              <label class="field"><span>Ad *</span><input name="name" required></label>
-              <label class="field"><span>Tip</span>
-                <select name="type">
-                  <option value="hostel">Yataqxana</option>
-                  <option value="university">Universitet</option>
-                  <option value="hotel">Hotel</option>
-                </select>
-              </label>
-              <label class="field"><span>Əlaqə e-poçtu</span><input name="contact_email" type="email"></label>
-              <label class="field"><span>Telefon</span><input name="contact_phone"></label>
-              <div class="wide" style="display:flex;gap:12px;align-items:center">
-                <button class="btn btn-primary" type="submit">Yarat</button>
-                <button class="btn" type="button" id="btnCancelOrg">Ləğv et</button>
-                <p class="note-err" id="newOrgNote" style="margin:0"></p>
-              </div>
-            </form>
-          </div>
-
-          <div class="table-wrap">
-            <table class="panel-table">
-              <thead><tr><th>Orqanizasiya</th><th>Statistika</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
-              <tbody id="orgsBody"></tbody>
-            </table>
-          </div>
-
-          <!-- Org detail panel -->
-          <div id="orgDetail" class="panel-card" hidden style="margin-top:24px">
-            <div class="panel-card-head" style="margin-bottom:20px">
-              <h3 id="orgDetailTitle" style="margin:0"></h3>
-              <button class="btn btn-sm" id="btnCloseDetail">Bağla</button>
-            </div>
-
-            <details style="margin-bottom:24px">
-              <summary style="cursor:pointer;font-weight:700;padding:8px 0">Orqanizasiyanı redaktə et</summary>
-              <form id="editOrgForm" class="panel-form" style="margin-top:16px">
-                <input type="hidden" name="id">
-                <label class="field"><span>Ad</span><input name="name" required></label>
-                <label class="field"><span>Tip</span>
-                  <select name="type">
-                    <option value="hostel">Yataqxana</option>
-                    <option value="university">Universitet</option>
-                    <option value="hotel">Hotel</option>
-                  </select>
-                </label>
-                <label class="field"><span>E-poçt</span><input name="contact_email" type="email"></label>
-                <label class="field"><span>Telefon</span><input name="contact_phone"></label>
-                <label class="field"><span>Status</span>
-                  <select name="status">
-                    <option value="Active">Aktiv</option>
-                    <option value="Suspended">Dayandırılmış</option>
-                    <option value="Pending">Gözləmədə</option>
-                    <option value="Archived">Arxivləşdirilmiş</option>
-                  </select>
-                </label>
-                <div style="display:flex;gap:12px;align-items:center">
-                  <button class="btn btn-primary" type="submit">Saxla</button>
-                  <p class="note-err" id="editOrgNote" style="margin:0"></p>
-                </div>
-              </form>
-            </details>
-
-            <div class="panel-card-head" style="margin-bottom:12px">
-              <h4 style="margin:0">Admin / Moderatorlar</h4>
-              <button class="btn btn-sm btn-primary" id="btnNewAdminUser">+ Yeni istifadəçi</button>
-            </div>
-            <div id="newAdminPanel" class="panel-card" hidden style="margin-bottom:16px">
-              <form id="newAdminForm" class="panel-form">
-                <input type="hidden" name="organization_id">
-                <label class="field"><span>İstifadəçi adı *</span><input name="username" required autocomplete="off"></label>
-                <label class="field"><span>Ad soyad</span><input name="full_name"></label>
-                <label class="field"><span>Şifrə * (min 8)</span><input name="password" type="password" required autocomplete="new-password"></label>
-                <label class="field"><span>Rol</span>
-                  <select name="role"><option value="admin">Admin</option><option value="moderator">Moderator</option></select>
-                </label>
-                <div class="wide" style="display:flex;gap:12px;align-items:center">
-                  <button class="btn btn-primary" type="submit">Yarat</button>
-                  <button class="btn" type="button" id="btnCancelAdmin">Ləğv et</button>
-                  <p class="note-err" id="newAdminNote" style="margin:0"></p>
-                </div>
-              </form>
+          <!-- Orgs view -->
+          <div id="viewOrgs" hidden>
+            <div class="panel-card-head" style="margin-bottom:16px">
+              <input class="panel-search" id="orgSearch" placeholder="Orqanizasiya axtar…" style="max-width:280px">
+              <button class="btn btn-primary" id="btnNewOrg">+ Yeni orqanizasiya</button>
             </div>
             <div class="table-wrap">
               <table class="panel-table">
-                <thead><tr><th>İstifadəçi adı</th><th>Ad</th><th>Rol</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
-                <tbody id="orgAdminsBody"></tbody>
+                <thead>
+                  <tr><th>Orqanizasiya</th><th>Statistika</th><th>Status</th><th>Əməliyyatlar</th></tr>
+                </thead>
+                <tbody id="orgsBody"></tbody>
               </table>
             </div>
           </div>
-        </div>
 
-        <!-- Settings tab -->
-        <div id="tabSettings" hidden>
-          <div class="panel-card" style="max-width:620px">
-            <h2 style="margin:0 0 20px">Sistem ayarları</h2>
-            <form id="settingsForm" class="panel-form">
-              <label class="field"><span>Rezervasiya müddəti (gün)</span><input name="booking_expiry_days" type="number" min="1" max="14" required></label>
-              <label class="field"><span>Admin bildiriş e-poçtu</span><input name="admin_notify_email" type="email"></label>
-              <label class="field"><span>SMTP host</span><input name="smtp_host" placeholder="smtp.example.com"></label>
-              <label class="field"><span>SMTP port</span><input name="smtp_port" type="number" placeholder="587"></label>
-              <label class="field"><span>SMTP istifadəçi</span><input name="smtp_user"></label>
-              <label class="field"><span>SMTP göndərən</span><input name="smtp_from" type="email"></label>
-              <label class="field wide"><span>SMTP parol (boş = əvvəlki qalır)</span><input name="smtp_pass" type="password" autocomplete="new-password" placeholder="Dəyişmək üçün yazın"></label>
-              <div class="wide" style="display:flex;gap:12px;align-items:center">
-                <button class="btn btn-primary" type="submit">Yadda saxla</button>
-                <p class="note-err" id="settingsNote" style="margin:0"></p>
-              </div>
-            </form>
+          <!-- Settings view -->
+          <div id="viewSettings" hidden>
+            <div class="panel-card" style="max-width:640px">
+              <h3 style="margin:0 0 20px;font-size:16px">📬 E-poçt / SMTP ayarları</h3>
+              <form id="settingsForm" class="panel-form">
+                <label class="field"><span>Rezervasiya müddəti (gün)</span>
+                  <input name="booking_expiry_days" type="number" min="1" max="14" required></label>
+                <label class="field"><span>Admin bildiriş e-poçtu</span>
+                  <input name="admin_notify_email" type="email"></label>
+                <label class="field"><span>SMTP host</span>
+                  <input name="smtp_host" placeholder="smtp.example.com"></label>
+                <label class="field"><span>SMTP port</span>
+                  <input name="smtp_port" type="number" placeholder="587"></label>
+                <label class="field"><span>SMTP istifadəçi</span>
+                  <input name="smtp_user"></label>
+                <label class="field"><span>SMTP göndərən</span>
+                  <input name="smtp_from" type="email"></label>
+                <label class="field wide"><span>SMTP parol (boş = əvvəlki qalır)</span>
+                  <input name="smtp_pass" type="password" autocomplete="new-password" placeholder="Dəyişmək üçün yazın"></label>
+                <div class="wide" style="display:flex;gap:12px;align-items:center">
+                  <button class="btn btn-primary" type="submit">Yadda saxla</button>
+                  <p class="note-err" id="settingsNote" style="margin:0"></p>
+                </div>
+              </form>
+            </div>
           </div>
+
         </div>
+      </div><!-- /sa-main -->
+    </div><!-- /sa-layout -->
+  </div><!-- /saApp -->
+
+  <!-- ════ New Org Modal ════════════════════════════════════════════════════ -->
+  <div id="newOrgModal" class="sa-modal" aria-hidden="true">
+    <div class="sa-modal-ov" onclick="closeNewOrgModal()"></div>
+    <div class="sa-modal-box">
+      <div class="sa-modal-head">
+        <h3>🏢 Yeni orqanizasiya</h3>
+        <button class="sa-modal-close" onclick="closeNewOrgModal()">×</button>
+      </div>
+      <div class="sa-modal-body">
+        <form id="newOrgForm" class="panel-form">
+          <label class="field"><span>Ad *</span><input name="name" required></label>
+          <label class="field"><span>Tip</span>
+            <select name="type">
+              <option value="hostel">Yataqxana</option>
+              <option value="university">Universitet</option>
+              <option value="hotel">Hotel</option>
+            </select>
+          </label>
+          <label class="field"><span>Əlaqə e-poçtu</span><input name="contact_email" type="email"></label>
+          <label class="field"><span>Telefon</span><input name="contact_phone"></label>
+          <div class="wide" style="display:flex;gap:12px;align-items:center">
+            <button class="btn btn-primary" type="submit">Yarat</button>
+            <button class="btn" type="button" onclick="closeNewOrgModal()">Ləğv et</button>
+            <p class="note-err" id="newOrgNote" style="margin:0"></p>
+          </div>
+        </form>
       </div>
     </div>
+  </div>
 
-    <script src="assets/superadmin.js?v=20260524"></script>
+  <!-- ════ Org Detail Modal ════════════════════════════════════════════════ -->
+  <div id="orgDetailModal" class="sa-modal" aria-hidden="true">
+    <div class="sa-modal-ov" onclick="closeOrgDetail()"></div>
+    <div class="sa-modal-box">
+      <div class="sa-modal-head">
+        <h3 id="orgDetailTitle">—</h3>
+        <button class="sa-modal-close" onclick="closeOrgDetail()">×</button>
+      </div>
+      <div class="sa-modal-body">
+
+        <!-- Edit form -->
+        <details open>
+          <summary style="cursor:pointer;font-weight:700;padding:6px 0;font-size:14px">
+            ✏️ Orqanizasiyanı redaktə et
+          </summary>
+          <form id="editOrgForm" class="panel-form" style="margin-top:16px">
+            <input type="hidden" name="id">
+            <label class="field"><span>Ad</span><input name="name" required></label>
+            <label class="field"><span>Tip</span>
+              <select name="type">
+                <option value="hostel">Yataqxana</option>
+                <option value="university">Universitet</option>
+                <option value="hotel">Hotel</option>
+              </select>
+            </label>
+            <label class="field"><span>E-poçt</span><input name="contact_email" type="email"></label>
+            <label class="field"><span>Telefon</span><input name="contact_phone"></label>
+            <label class="field"><span>Status</span>
+              <select name="status">
+                <option value="Active">Aktiv</option>
+                <option value="Suspended">Dayandırılmış</option>
+                <option value="Pending">Gözləmədə</option>
+                <option value="Archived">Arxivləşdirilmiş</option>
+              </select>
+            </label>
+            <div style="display:flex;gap:12px;align-items:center">
+              <button class="btn btn-primary" type="submit">Saxla</button>
+              <p class="note-err" id="editOrgNote" style="margin:0"></p>
+            </div>
+          </form>
+        </details>
+
+        <hr class="sa-divider">
+
+        <!-- Admins section -->
+        <div class="sa-section-head">
+          <h4>👤 Admin / Moderatorlar</h4>
+          <button class="btn btn-sm btn-primary" id="btnNewAdminUser">+ Yeni istifadəçi</button>
+        </div>
+        <div id="newAdminPanel" class="panel-card" hidden style="margin-bottom:14px">
+          <form id="newAdminForm" class="panel-form">
+            <input type="hidden" name="organization_id">
+            <label class="field"><span>İstifadəçi adı *</span>
+              <input name="username" required autocomplete="off"></label>
+            <label class="field"><span>Ad soyad</span><input name="full_name"></label>
+            <label class="field"><span>Şifrə * (min 8)</span>
+              <input name="password" type="password" required autocomplete="new-password"></label>
+            <label class="field"><span>Rol</span>
+              <select name="role">
+                <option value="admin">Admin</option>
+                <option value="moderator">Moderator</option>
+              </select>
+            </label>
+            <div class="wide" style="display:flex;gap:12px;align-items:center">
+              <button class="btn btn-primary" type="submit">Yarat</button>
+              <button class="btn" type="button" id="btnCancelAdmin">Ləğv et</button>
+              <p class="note-err" id="newAdminNote" style="margin:0"></p>
+            </div>
+          </form>
+        </div>
+        <div class="table-wrap">
+          <table class="panel-table">
+            <thead>
+              <tr>
+                <th>İstifadəçi adı</th><th>Ad</th><th>Rol</th>
+                <th>Status</th><th>Əməliyyatlar</th>
+              </tr>
+            </thead>
+            <tbody id="orgAdminsBody"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/superadmin.js?v=20260524"></script>
   </body>
 </html>
