@@ -34,9 +34,9 @@ function note(id, text, ok = false) {
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-document.querySelectorAll('.sa-tab').forEach(tab => {
+document.querySelectorAll('.tab-btn').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.sa-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     const name = tab.dataset.tab;
     $('#tabOrgs').hidden = name !== 'orgs';
@@ -118,12 +118,12 @@ async function loadOrgs() {
             <span>${o.moderator_count ?? 0} moderator</span>
           </div>
         </td>
-        <td><span class="tag ${
-          o.status === 'Active' ? 'tag-active' :
-          o.status === 'Suspended' ? 'tag-inactive' :
-          o.status === 'Pending' ? '' : 'tag-inactive'
+        <td><span class="badge ${
+          o.status === 'Active' ? 'badge-ok' :
+          o.status === 'Suspended' ? 'badge-err' :
+          o.status === 'Pending' ? 'badge-warn' : 'badge-muted'
         }">${o.status === 'Active' ? 'Aktiv' : o.status === 'Suspended' ? 'Bloklanmış' : o.status === 'Pending' ? 'Gözləyir' : 'Arxivdə'}</span></td>
-        <td class="act">
+        <td class="row-acts">
           <button class="btn btn-sm" onclick="openOrgDetail(${o.id}, ${JSON.stringify(esc(o.name))})">Detay</button>
           ${o.status !== 'Active'     ? `<button class="btn btn-sm" style="color:var(--success)" onclick="setOrgStatus(${o.id},'Active')">Aktiv et</button>` : ''}
           ${o.status === 'Active'     ? `<button class="btn btn-sm" style="color:var(--danger)"  onclick="setOrgStatus(${o.id},'Suspended')">Blokla</button>` : ''}
@@ -239,9 +239,9 @@ async function loadOrgAdmins(orgId) {
       <tr>
         <td>${esc(u.username)}</td>
         <td>${esc(u.full_name || '')}</td>
-        <td><span class="tag ${u.role === 'admin' ? 'tag-active' : ''}">${u.role === 'admin' ? 'Admin' : 'Moderator'}</span></td>
-        <td><span class="tag ${u.active ? 'tag-active' : 'tag-inactive'}">${u.active ? 'Aktiv' : 'Deaktiv'}</span></td>
-        <td class="act">
+        <td><span class="badge ${u.role === 'admin' ? 'badge-info' : 'badge-muted'}">${u.role === 'admin' ? 'Admin' : 'Moderator'}</span></td>
+        <td><span class="badge ${u.active ? 'badge-ok' : 'badge-err'}">${u.active ? 'Aktiv' : 'Deaktiv'}</span></td>
+        <td class="row-acts">
           <button class="btn btn-sm" onclick="toggleOrgAdmin(${u.id}, ${u.active ? 0 : 1})">${u.active ? 'Deaktiv et' : 'Aktiv et'}</button>
           <button class="btn btn-sm" style="color:var(--danger)" onclick="deleteOrgAdmin(${u.id})">Sil</button>
         </td>

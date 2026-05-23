@@ -7,9 +7,9 @@ function esc(v) {
 
 function badge(status) {
   if (status === 'Approved') return `<span class="badge badge-ok">Təsdiqlənib</span>`;
-  if (status === 'Rejected') return `<span class="badge badge-no">Rədd edilib</span>`;
-  if (status === 'Expired')  return `<span class="badge badge-no">Vaxtı keçib</span>`;
-  return `<span class="badge badge-wait">Gözləyir</span>`;
+  if (status === 'Rejected') return `<span class="badge badge-err">Rədd edilib</span>`;
+  if (status === 'Expired')  return `<span class="badge badge-err">Vaxtı keçib</span>`;
+  return `<span class="badge badge-warn">Gözləyir</span>`;
 }
 
 function typeLabel(t) {
