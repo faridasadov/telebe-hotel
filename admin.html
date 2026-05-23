@@ -14,8 +14,7 @@
       .d-card h3 { margin: 0; font-size: 11px; opacity: .85; text-transform: uppercase; letter-spacing: .06em; }
       .d-card strong { display: block; font-size: 2rem; font-weight: 800; margin-top: 6px; line-height: 1; }
       .modal-form { max-width: 820px; }
-      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-      .form-grid .full-width { grid-column: 1 / -1; }
+      .verify-mini-cards { grid-template-columns: repeat(3, 1fr); max-width: 640px; }
       .admin-hidden { display: none !important; }
       .status-approved { background: rgba(16,185,129,.12); color: var(--success); }
       .status-rejected { background: rgba(239,68,68,.12);  color: var(--danger);  }
@@ -43,7 +42,7 @@
         <h1>Admin giriş</h1>
         <label class="field"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
         <label class="field"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
-        <p id="loginError" class="login-note"></p>
+        <p id="loginError" class="note-err" aria-live="polite"></p>
         <button class="btn btn-primary btn-lg" style="width:100%" type="submit">Daxil ol</button>
       </form>
     </section>
@@ -62,22 +61,22 @@
       </div>
 
       <div class="tab-nav">
-        <div class="tab-btn active" data-tab="places">Obyektlər</div>
-        <div class="tab-btn" data-tab="bookings">Müraciətlər</div>
-        <div class="tab-btn" data-tab="providers">Ev sahibləri</div>
-        <div class="tab-btn" data-tab="students">Tələbələr</div>
-        <div class="tab-btn" data-tab="providerListings">Sahib elanları</div>
-        <div class="tab-btn" data-tab="verification">Yoxlama növbəsi</div>
-        <div class="tab-btn" data-tab="reports">Reportlar</div>
-        <div class="tab-btn" data-tab="audit">Jurnal</div>
-        <div class="tab-btn" data-tab="moderators" id="tabBtnModerators" style="display:none">Moderatorlar</div>
+        <button class="tab-btn active" type="button" data-tab="places">Obyektlər</button>
+        <button class="tab-btn" type="button" data-tab="bookings">Müraciətlər</button>
+        <button class="tab-btn" type="button" data-tab="providers">Ev sahibləri</button>
+        <button class="tab-btn" type="button" data-tab="students">Tələbələr</button>
+        <button class="tab-btn" type="button" data-tab="providerListings">Sahib elanları</button>
+        <button class="tab-btn" type="button" data-tab="verification">Yoxlama növbəsi</button>
+        <button class="tab-btn" type="button" data-tab="reports">Reportlar</button>
+        <button class="tab-btn" type="button" data-tab="audit">Jurnal</button>
+        <button class="tab-btn admin-hidden" type="button" data-tab="moderators" id="tabBtnModerators">Moderatorlar</button>
       </div>
 
       <!-- Places -->
       <div id="tabPlaces">
         <div class="section-head">
           <h2>Obyektlər</h2>
-          <button class="btn btn-primary" id="btnNewPlace" style="display:none" type="button">+ Yeni elan</button>
+          <button class="btn btn-primary admin-hidden" id="btnNewPlace" type="button">+ Yeni elan</button>
         </div>
         <input id="searchPlaces" class="panel-search" type="text" placeholder="Axtar...">
         <div class="table-wrap">
@@ -139,7 +138,7 @@
       <!-- Verification queue -->
       <div id="tabVerification" style="display:none">
         <div class="section-head"><h2>Yoxlama növbəsi</h2></div>
-        <div class="dashboard-cards" style="grid-template-columns:repeat(3,1fr);max-width:640px">
+        <div class="dashboard-cards verify-mini-cards">
           <div class="d-card"><h3>Sahiblər</h3><strong id="verifyProviderCount">-</strong></div>
           <div class="d-card"><h3>Tələbələr</h3><strong id="verifyStudentCount">-</strong></div>
           <div class="d-card"><h3>Elanlar</h3><strong id="verifyListingCount">-</strong></div>
@@ -180,7 +179,7 @@
       <!-- Moderators -->
       <div id="tabModerators" style="display:none">
         <div class="section-head"><h2>Moderatorlar</h2></div>
-        <div class="panel-card" style="max-width:540px">
+        <div class="panel-card" style="max-width:540px;margin-bottom:24px">
           <h3 style="margin:0 0 18px">Yeni moderator əlavə et</h3>
           <form id="moderatorForm" class="panel-form">
             <label class="field"><span>İstifadəçi adı</span><input name="username" required autocomplete="off"></label>
@@ -189,7 +188,7 @@
             <div style="display:flex;align-items:flex-end">
               <button type="submit" class="btn btn-primary" style="width:100%">Əlavə et</button>
             </div>
-            <p id="moderatorError" class="note-err wide" style="margin:0"></p>
+            <p id="moderatorError" class="note-err wide"></p>
           </form>
         </div>
         <input id="searchModerators" class="panel-search" type="text" placeholder="Axtar...">
@@ -210,7 +209,7 @@
         <button class="modal-close" data-close>&times;</button>
         <div class="modal-body">
           <h2 id="modalTitle">Obyekt məlumatları</h2>
-          <form id="placeForm" class="form-grid">
+          <form id="placeForm" class="panel-form">
             <input type="hidden" name="id">
             <label class="field"><span>Ad</span><input name="name" required></label>
             <label class="field"><span>Şəhər</span>
@@ -245,17 +244,17 @@
             <label class="field"><span>Qız — boş</span><input type="number" name="female_free" value="0"></label>
             <label class="field"><span>Oğlan — dolu</span><input type="number" name="male_occupied" value="0"></label>
             <label class="field"><span>Oğlan — boş</span><input type="number" name="male_free" value="0"></label>
-            <label class="field full-width"><span>Ünvan</span><input name="address" required></label>
-            <label class="field full-width"><span>Şəkillər (hər sətirdə URL)</span><textarea name="images" rows="3"></textarea></label>
-            <label class="field full-width"><span>Virtual tur URL</span><input name="virtual_tour"></label>
-            <label class="field full-width"><span>Təsvir</span><textarea name="description" rows="3"></textarea></label>
-            <label class="field full-width"><span>İmkanlar (wifi, kitchen, laundry...)</span><textarea name="amenities" rows="2"></textarea></label>
-            <label class="field full-width"><span>Universitetlər (CODE | Ad | dəqiqə)</span><textarea name="universities" rows="3"></textarea></label>
-            <div class="full-width" style="display:flex;gap:20px">
+            <label class="field wide"><span>Ünvan</span><input name="address" required></label>
+            <label class="field wide"><span>Şəkillər (hər sətirdə URL)</span><textarea name="images" rows="3"></textarea></label>
+            <label class="field wide"><span>Virtual tur URL</span><input name="virtual_tour"></label>
+            <label class="field wide"><span>Təsvir</span><textarea name="description" rows="3"></textarea></label>
+            <label class="field wide"><span>İmkanlar (wifi, kitchen, laundry...)</span><textarea name="amenities" rows="2"></textarea></label>
+            <label class="field wide"><span>Universitetlər (CODE | Ad | dəqiqə)</span><textarea name="universities" rows="3"></textarea></label>
+            <div class="wide" style="display:flex;gap:20px">
               <label><input type="checkbox" name="wifi"> Wi-Fi</label>
               <label><input type="checkbox" name="utilities"> Kommunal daxil</label>
             </div>
-            <div class="full-width" style="margin-top:8px">
+            <div class="wide panel-form-actions">
               <button type="submit" class="btn btn-primary">Yadda saxla</button>
             </div>
           </form>
@@ -263,6 +262,6 @@
       </div>
     </div>
 
-    <script src="assets/admin-panel.js?v=20260524"></script>
+    <script src="assets/admin-panel.js?v=20260525"></script>
   </body>
 </html>

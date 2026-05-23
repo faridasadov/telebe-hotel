@@ -4,6 +4,7 @@ const qs = (selector) => document.querySelector(selector);
 const field = (form, name) => form && form.elements ? form.elements[name] : null;
 
 let _adminRole = null;
+let _placesCache = [];
 
 function applySessionUI(session) {
   _adminRole = session.role;
@@ -11,15 +12,9 @@ function applySessionUI(session) {
   if (orgDisplay) {
     orgDisplay.textContent = session.organization_name ? `— ${session.organization_name}` : "";
   }
-  const btnMod = qs("#tabBtnModerators");
-  const btnNewPlace = qs("#btnNewPlace");
-  if (_adminRole === "admin") {
-    if (btnMod) btnMod.style.display = "";
-    if (btnNewPlace) btnNewPlace.style.display = "";
-  } else {
-    if (btnMod) btnMod.style.display = "none";
-    if (btnNewPlace) btnNewPlace.style.display = "none";
-  }
+  const isAdmin = _adminRole === "admin";
+  qs("#tabBtnModerators")?.classList.toggle("admin-hidden", !isAdmin);
+  qs("#btnNewPlace")?.classList.toggle("admin-hidden", !isAdmin);
 }
 
 function escHtml(value) {
@@ -59,18 +54,22 @@ function statusClass(status) {
 
 async function authFetch(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: "same-origin" });
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 403) {
     showLogin();
     throw new Error("Unauthorized");
   }
   return response;
 }
 
-function showAdminError(message) {
+function showAdminNote(message, ok = false) {
   const target = qs("#adminError");
-  if (target) target.textContent = message;
-  else if (message) console.error(message);
+  if (!target) { if (message && !ok) console.error(message); return; }
+  target.textContent = message;
+  target.style.color = ok ? "var(--success)" : "";
+  if (ok && message) setTimeout(() => { if (target.textContent === message) { target.textContent = ""; target.style.color = ""; } }, 2500);
 }
+
+function showAdminError(message) { showAdminNote(message, false); }
 
 function showLogin() {
   qs("#loginPanel").classList.remove("admin-hidden");
@@ -179,6 +178,7 @@ async function fetchPlaces() {
   const response = await authFetch(`${API_URL}/admin/places`);
   if (!response.ok) throw new Error("Obyektlər yüklənmədi");
   const data = await response.json();
+  _placesCache = data;
   qs("#placesTableBody").innerHTML = data.map((p) => `
     <tr>
       <td>${p.id}</td>
@@ -294,7 +294,7 @@ async function fetchStudents() {
 }
 
 async function setStudentStatus(id, status) {
-  const note = status !== "Approved" ? prompt("Qeyd") || "" : "";
+  const note = status === "Rejected" ? prompt("Qeyd") || "" : "";
   const response = await authFetch(`${API_URL}/admin/students/${id}/status`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -302,20 +302,22 @@ async function setStudentStatus(id, status) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    alert(data.error || "Tələbə statusu dəyişmədi");
+    showAdminError(data.error || "Tələbə statusu dəyişmədi");
     return;
   }
+  showAdminNote("Status yeniləndi.", true);
   fetchStudents();
+  fetchStats();
 }
 
 async function openStudentDocument(id) {
   const response = await authFetch(`${API_URL}/admin/students/${id}/document`);
-  const doc = await response.json();
   if (!response.ok) {
-    alert(doc.error || "Sənəd tapılmadı");
+    const doc = await response.json().catch(() => ({}));
+    showAdminError(doc.error || "Sənəd tapılmadı");
     return;
   }
-  openBase64Document(doc);
+  openBase64Document(await response.json());
 }
 
 async function setProviderStatus(id, status) {
@@ -327,20 +329,22 @@ async function setProviderStatus(id, status) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    alert(data.error || "Status dəyişmədi");
+    showAdminError(data.error || "Status dəyişmədi");
     return;
   }
+  showAdminNote("Status yeniləndi.", true);
   fetchProviders();
+  fetchStats();
 }
 
 async function openProviderDocument(id) {
   const response = await authFetch(`${API_URL}/admin/providers/${id}/document`);
-  const doc = await response.json();
   if (!response.ok) {
-    alert(doc.error || "Sənəd tapılmadı");
+    const doc = await response.json().catch(() => ({}));
+    showAdminError(doc.error || "Sənəd tapılmadı");
     return;
   }
-  openBase64Document(doc);
+  openBase64Document(await response.json());
 }
 
 async function fetchProviderListings() {
@@ -437,7 +441,7 @@ async function fetchReports() {
 }
 
 async function setReportStatus(id, status) {
-  const note = prompt("Qeyd") || "";
+  const note = status === "Rejected" ? prompt("İmtina səbəbi") || "" : "";
   const response = await authFetch(`${API_URL}/admin/reports/${id}/status`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -445,9 +449,10 @@ async function setReportStatus(id, status) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    alert(data.error || "Report statusu dəyişmədi");
+    showAdminError(data.error || "Report statusu dəyişmədi");
     return;
   }
+  showAdminNote("Status yeniləndi.", true);
   fetchReports();
 }
 
@@ -488,9 +493,10 @@ async function setProviderListingStatus(id, status) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    alert(data.error || "Elan statusu dəyişmədi");
+    showAdminError(data.error || "Elan statusu dəyişmədi");
     return;
   }
+  showAdminNote("Status yeniləndi.", true);
   fetchProviderListings();
   fetchPlaces();
   fetchStats();
@@ -504,9 +510,10 @@ async function setBookingStatus(id, status) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    alert(data.error || "Status dəyişmədi");
+    showAdminError(data.error || "Status dəyişmədi");
     return;
   }
+  showAdminNote("Status yeniləndi.", true);
   fetchBookings();
   fetchPlaces();
   fetchStats();
@@ -514,12 +521,12 @@ async function setBookingStatus(id, status) {
 
 async function openDocument(id) {
   const response = await authFetch(`${API_URL}/admin/bookings/${id}/document`);
-  const doc = await response.json();
   if (!response.ok) {
-    alert(doc.error || "Sənəd tapılmadı");
+    const doc = await response.json().catch(() => ({}));
+    showAdminError(doc.error || "Sənəd tapılmadı");
     return;
   }
-  openBase64Document(doc);
+  openBase64Document(await response.json());
 }
 
 function openBase64Document(doc) {
@@ -575,9 +582,10 @@ async function toggleModerator(id, active) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    alert(data.error || "Status dəyişmədi");
+    showAdminError(data.error || "Status dəyişmədi");
     return;
   }
+  showAdminNote("Moderator statusu yeniləndi.", true);
   fetchModerators();
 }
 
@@ -641,11 +649,12 @@ function universitiesToLines(values) {
 
 async function editPlace(id) {
   if (!placeForm || !modal) return;
-  const response = await authFetch(`${API_URL}/admin/places`);
-  const places = await response.json();
-  if (!response.ok) {
-    alert(places.error || "Obyekt yüklənmədi");
-    return;
+  let places = _placesCache;
+  if (!places.length) {
+    const response = await authFetch(`${API_URL}/admin/places`);
+    if (!response.ok) { showAdminError("Obyekt yüklənmədi"); return; }
+    places = await response.json();
+    _placesCache = places;
   }
   const p = places.find((item) => Number(item.id) === Number(id));
   if (!p) {

@@ -200,6 +200,12 @@
 /* ── Row actions ────────────────────────────────────────────────── */
 .row-acts { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
 
+/* ── Admin panel table helpers ──────────────────────────────────── */
+.booking-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.admin-actions   { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.muted-small     { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.provider-meta   { display: flex; flex-direction: column; gap: 2px; }
+
 /* ── Note lines ─────────────────────────────────────────────────── */
 .note-ok  { color: var(--success); font-weight: 700; font-size: 14px; min-height: 20px; }
 .note-err { color: var(--danger);  font-weight: 700; font-size: 14px; min-height: 20px; }
