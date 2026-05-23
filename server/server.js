@@ -74,7 +74,16 @@ app.get('/admin-login', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.sendFile(path.join(__dirname, '..', 'admin.html'));
 });
-app.use(express.static(path.join(__dirname, '..')));
+const NO_CACHE_FILES = new Set(['admin.html', 'admin-panel.js', 'admin.js', 'superadmin.html', 'superadmin.js', 'moderator.html', 'moderator.js']);
+app.use(express.static(path.join(__dirname, '..'), {
+  maxAge: '5m',
+  setHeaders(res, filePath) {
+    const base = require('path').basename(filePath);
+    if (NO_CACHE_FILES.has(base)) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    }
+  },
+}));
 
 function parseCookies(req) {
   return String(req.headers.cookie || '').split(';').reduce((acc, part) => {
