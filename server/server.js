@@ -2276,7 +2276,7 @@ app.get('/api/superadmin/audit-logs', requireSuperAdminAuth, (req, res) => {
     ? `WHERE (au.organization_id = ${orgId} OR (al.entity_type = 'organization' AND CAST(al.entity_id AS INTEGER) = ${orgId}))`
     : '';
   db.all(`
-    SELECT al.id, al.actor, al.action, al.entity_type, al.entity_id, al.meta, al.created_at,
+    SELECT al.id, al.actor, al.action, al.entity_type, al.entity_id, al.details AS meta, al.created_at,
            o.name AS org_name
     FROM audit_logs al
     LEFT JOIN admin_users au ON al.actor = au.username
