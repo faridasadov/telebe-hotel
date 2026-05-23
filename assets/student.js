@@ -161,10 +161,11 @@ async function loadBookings() {
 }
 
 async function loadStudentPanel() {
-  const response = await studentFetch(`${API_URL}/students/session`);
-  const data = await response.json();
-  showPanel(data.student);
-  const bookings = await loadBookings();
+  const [sessionData, bookings] = await Promise.all([
+    studentFetch(`${API_URL}/students/session`).then(r => r.json()),
+    loadBookings(),
+  ]);
+  showPanel(sessionData.student);
   updateUnreadBadge(bookings);
 }
 

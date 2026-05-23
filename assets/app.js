@@ -300,6 +300,18 @@ function updateRangeTrack() {
   }
 }
 
+// ---------- Image helpers ----------
+function thumbUrl(url, w = 500) {
+  if (!url) return `https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=${w}&q=70`;
+  try {
+    const u = new URL(url);
+    u.searchParams.set("w", String(w));
+    u.searchParams.set("q", "70");
+    u.searchParams.set("auto", "format");
+    return u.toString();
+  } catch { return url; }
+}
+
 // ---------- Card ----------
 function placeCard(place) {
   const v = place.free_spots;
@@ -307,7 +319,7 @@ function placeCard(place) {
   const percent = place.total_spots > 0 ? Math.round((occupied / place.total_spots) * 100) : 0;
   const isFull = v <= 0;
   const status = getStatus(place);
-  const cover = (place.images && place.images[0]) || "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=900&q=80";
+  const cover = thumbUrl(place.images && place.images[0]);
   const nearest = place.universities && place.universities[0];
   const isFav = getFavs().has(place.id);
 
@@ -527,6 +539,14 @@ async function renderPlaces() {
   }
 
   _allPlaces = data;
+  // Re-apply near-me sort if user location is set
+  if (_userLat != null) {
+    _allPlaces.sort((a, b) => {
+      const dA = a.lat && a.lng ? haversineKm(_userLat, _userLng, a.lat, a.lng) : 9999;
+      const dB = b.lat && b.lng ? haversineKm(_userLat, _userLng, b.lat, b.lng) : 9999;
+      return dA - dB;
+    });
+  }
   _currentPage = 1;
 
   if (resultCount) resultCount.textContent = t("results.count", { n: data.length });
@@ -1101,11 +1121,18 @@ document.getElementById("nearMeBtn")?.addEventListener("click", () => {
     btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="5"/></svg> Mənə yaxın`;
     btn.classList.add("near-me-active");
     applyNearMeSort();
-  }, () => {
-    btn.textContent = "Məkan icazəsi verilmədi";
+  }, (err) => {
     btn.disabled = false;
-    setTimeout(() => { btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Mənə yaxın`; }, 2500);
-  });
+    const isHttpBlocked = location.protocol !== "https:" && location.hostname !== "localhost";
+    btn.textContent = isHttpBlocked ? "HTTPS tələb olunur" : "Məkan icazəsi verilmədi";
+    btn.title = isHttpBlocked
+      ? "Brauzerlər geolokasiya üçün HTTPS bağlantısı tələb edir"
+      : "Brauzer parametrlərindən məkan icazəsi verin";
+    setTimeout(() => {
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Mənə yaxın`;
+      btn.title = "";
+    }, 3000);
+  }, { timeout: 8000 });
 });
 
 function applyNearMeSort() {
