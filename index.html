@@ -76,7 +76,7 @@
         <div class="container hero-inner">
           <span class="badge" data-i18n="hero.eyebrow">✨ Tələbələr üçün real vaxt sistemi</span>
           <h1 data-i18n="hero.title">Universitetinizə yaxın <span class="accent">ideal yaşayış</span> yerini tapın</h1>
-          <p class="hero-sub" data-i18n="hero.subtitle">Bakı, Gəncə və Sumqayıtda yoxlanılmış yataqxana, hotel və kirayə evlər. Boş yerləri real vaxtda görün və onlayn rezervasiya edin.</p>
+          <p class="hero-sub" data-i18n="hero.subtitle">Azərbaycanın bütün şəhərlərində yoxlanılmış yataqxana, hotel və kirayə evlər. Boş yerləri real vaxtda görün və onlayn rezervasiya edin.</p>
 
           <form class="search-card" aria-label="Quick search">
             <label>
@@ -462,6 +462,38 @@
               <div id="mapStage" class="ss-map-stage">
                 <div id="mapWorld" class="ss-map-world">
                   <div class="ss-map-aurora"></div>
+                  <!-- Azerbaijan border outline -->
+                  <svg width="100%" height="100%" viewBox="0 0 320 480" preserveAspectRatio="none"
+                       style="position:absolute;inset:0;pointer-events:none;z-index:1" aria-hidden="true">
+                    <defs>
+                      <filter id="azGlow">
+                        <feGaussianBlur stdDeviation="2" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                      </filter>
+                    </defs>
+                    <!-- Main territory -->
+                    <path d="M 29,110 L 35,106 L 45,120 L 54,178 L 67,163 L 83,163
+                             L 86,24 L 99,38 L 115,62 L 130,91 L 144,110 L 163,120
+                             L 182,149 L 218,58 L 227,91 L 234,110 L 255,130
+                             L 266,173 L 282,197 L 295,221 L 288,250 L 272,280
+                             L 230,307 L 224,370 L 218,422 L 221,456
+                             L 192,467 L 176,440 L 160,413 L 128,373
+                             L 115,307 L 109,253 L 109,173 L 83,163
+                             L 67,144 L 54,178 L 38,154 L 29,110 Z"
+                          fill="rgba(94,234,212,0.06)"
+                          stroke="rgba(94,234,212,0.35)"
+                          stroke-width="1.5"
+                          stroke-linejoin="round"
+                          filter="url(#azGlow)"/>
+                    <!-- Nakhchivan exclave -->
+                    <path d="M 16,307 L 51,307 L 54,394 L 16,386 Z"
+                          fill="rgba(94,234,212,0.06)"
+                          stroke="rgba(94,234,212,0.3)"
+                          stroke-width="1.2"
+                          stroke-linejoin="round"
+                          stroke-dasharray="4 3"/>
+                  </svg>
+                  <!-- Topographic contour lines -->
                   <svg width="100%" height="100%" viewBox="0 0 320 480" preserveAspectRatio="none"
                        style="position:absolute;inset:0;opacity:0.35;pointer-events:none" aria-hidden="true">
                     <defs>

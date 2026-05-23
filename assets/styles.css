@@ -2890,3 +2890,64 @@ input[type="range"]::-webkit-slider-thumb {
   .modal-cta-bar { flex-direction: column; }
   .modal-cta-bar .btn { width: 100%; justify-content: center; }
 }
+
+/* ==========================================
+   Scroll reveal
+   ========================================== */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ==========================================
+   Bouncy hover effects (from design kit)
+   ========================================== */
+.place-card, .step, .feature {
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.24s ease,
+    border-color 0.24s ease;
+}
+.place-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+}
+.step:hover   { transform: translateY(-8px) scale(1.02); }
+.feature:hover{ transform: translateY(-8px) scale(1.02); }
+
+.btn {
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s, box-shadow 0.18s !important;
+}
+.btn-primary:hover { transform: translateY(-3px) scale(1.02); }
+.btn-sm:hover      { transform: translateY(-2px); }
+
+/* ==========================================
+   Card actions row + map link button
+   ========================================== */
+.card-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+  font-weight: 700;
+  text-decoration: none;
+}
+.btn-map-link:hover {
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+  color: var(--brand-hover);
+}

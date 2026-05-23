@@ -15,7 +15,7 @@ window.I18N = {
 
     "hero.eyebrow": "✨ Tələbələr üçün real vaxt sistemi",
     "hero.title": "Universitetinizə yaxın <span class=\"accent\">ideal yaşayış</span> yerini tapın",
-    "hero.subtitle": "Bakı, Gəncə və Sumqayıtda yoxlanılmış yataqxana, hotel və kirayə evlər. Boş yerləri real vaxtda görün və onlayn rezervasiya edin.",
+    "hero.subtitle": "Azərbaycanın bütün şəhərlərində yoxlanılmış yataqxana, hotel və kirayə evlər. Boş yerləri real vaxtda görün və onlayn rezervasiya edin.",
     "hero.city": "Şəhər",
     "hero.moveIn": "Giriş tarixi",
     "hero.gender": "Cinsiyyət",
@@ -226,7 +226,7 @@ window.I18N = {
 
     "hero.eyebrow": "✨ Реальное время для студентов",
     "hero.title": "Найдите <span class=\"accent\">идеальное жильё</span> рядом с университетом",
-    "hero.subtitle": "Проверенные общежития, отели и квартиры в Баку, Гяндже и Сумгайыте. Смотрите свободные места в реальном времени и бронируйте онлайн.",
+    "hero.subtitle": "Проверенные общежития, отели и квартиры во всех городах Азербайджана. Смотрите свободные места в реальном времени и бронируйте онлайн.",
     "hero.city": "Город",
     "hero.moveIn": "Дата заезда",
     "hero.gender": "Пол",
@@ -437,7 +437,7 @@ window.I18N = {
 
     "hero.eyebrow": "✨ Real-time housing for students",
     "hero.title": "Find your <span class=\"accent\">ideal home</span> near your university",
-    "hero.subtitle": "Verified dorms, hotels and apartments in Baku, Ganja and Sumgayit. See live vacancies and reserve online.",
+    "hero.subtitle": "Verified dorms, hotels and apartments across all cities of Azerbaijan. See live vacancies and reserve online.",
     "hero.city": "City",
     "hero.moveIn": "Move-in date",
     "hero.gender": "Gender",

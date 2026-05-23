@@ -368,7 +368,18 @@ function placeCard(place) {
           ${isFull
             ? `<button class="btn btn-primary" type="button" data-open-place="${place.id}" style="background:var(--text-muted)">Gözləmə siyahısı →</button>`
             : `<a class="btn btn-primary" href="student.html" data-book-place="${place.id}">${t("card.apply")} →</a>`}
-          <button class="btn btn-sm" type="button" data-report-place="${place.id}">${t("card.report")}</button>
+          <div class="card-actions-row">
+            <button class="btn btn-sm" type="button" data-report-place="${place.id}">${t("card.report")}</button>
+            ${place.lat && place.lng
+              ? `<a class="btn btn-sm btn-map-link" href="https://www.google.com/maps?q=${place.lat},${place.lng}" target="_blank" rel="noopener" title="Google Maps-də aç">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                  Xəritədə gör
+                </a>`
+              : `<a class="btn btn-sm btn-map-link" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((place.name || '') + ' ' + (place.address || cityName(place.city)) + ' Azərbaycan')}" target="_blank" rel="noopener" title="Google Maps-də axtar">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                  Xəritədə gör
+                </a>`}
+          </div>
         </div>
       </div>
     </article>
@@ -1578,4 +1589,17 @@ async function updateStats() {
 
   /* ---- Boot ---- */
   checkSession();
+
+  /* ---- Scroll reveal ---- */
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("revealed"); revealObserver.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".section, .step, .feature, .stats, .faq-item, .place-card").forEach((el, i) => {
+    el.classList.add("reveal");
+    el.style.transitionDelay = (i % 4) * 0.07 + "s";
+    revealObserver.observe(el);
+  });
+
+  /* ---- Map init on load ---- */
+  initMap();
 })();
