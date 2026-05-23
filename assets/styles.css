@@ -2962,15 +2962,13 @@ input[type="range"]::-webkit-slider-thumb {
   inset: -1px;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(135deg, var(--brand), #a855f7, #ec4899);
-  background-size: 200% 200%;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--brand) 80%, var(--brand-hover)), var(--brand));
   opacity: 0;
   filter: blur(14px);
   z-index: -1;
   transition: opacity 0.3s ease;
-  animation: cardGlowShift 5s ease-in-out infinite;
 }
-.place-card:hover::after, .step:hover::after, .feature:hover::after { opacity: 0.45; }
+.place-card:hover::after, .step:hover::after, .feature:hover::after { opacity: 0.4; }
 @keyframes cardGlowShift {
   0%, 100% { background-position: 0% 50%; }
   50%       { background-position: 100% 50%; }
