@@ -85,9 +85,9 @@ function parseCookies(req) {
   }, {});
 }
 
-function createAdminSession(user, role = 'moderator') {
+function createAdminSession(user, role = 'moderator', orgId = null, orgName = null) {
   const token = crypto.randomBytes(32).toString('hex');
-  adminSessions.set(token, { user: user || ADMIN_USER, role, expiresAt: Date.now() + ADMIN_SESSION_MS });
+  adminSessions.set(token, { user: user || ADMIN_USER, role, organization_id: orgId, organization_name: orgName, expiresAt: Date.now() + ADMIN_SESSION_MS });
   return token;
 }
 
@@ -136,7 +136,13 @@ function requireAdmin(req, res, next) {
   const session = token ? adminSessions.get(token) : null;
   if (session && session.expiresAt > Date.now()) {
     session.expiresAt = Date.now() + ADMIN_SESSION_MS;
-    req.admin = { user: session.user, role: session.role || 'moderator', token };
+    req.admin = {
+      user: session.user,
+      role: session.role || 'moderator',
+      organization_id: session.organization_id || null,
+      organization_name: session.organization_name || null,
+      token,
+    };
     return next();
   }
   if (token) adminSessions.delete(token);
@@ -145,6 +151,20 @@ function requireAdmin(req, res, next) {
 
 function requireSuperAdmin(req, res, next) {
   if (!req.admin || req.admin.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin icazəsi lazımdır' });
+  next();
+}
+
+function requireOrgAdmin(req, res, next) {
+  if (!req.admin) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.admin.role !== 'admin') return res.status(403).json({ error: 'Bu əməliyyat yalnız org admin üçündür' });
+  if (!req.admin.organization_id) return res.status(403).json({ error: 'Orqanizasiya təyin edilməyib' });
+  next();
+}
+
+function requireNotModerator(req, res, next) {
+  if (req.admin && req.admin.role === 'moderator') {
+    return res.status(403).json({ error: 'Bu əməliyyat moderator üçün məhdudlaşdırılıb' });
+  }
   next();
 }
 
@@ -492,14 +512,14 @@ app.post('/api/admin/login', (req, res) => {
   if (isLoginLimited(req)) return res.status(429).json({ error: 'Çox cəhd edildi. Bir az sonra yenidən yoxlayın.' });
   const { username, password } = req.body || {};
   const normalizedUsername = String(username || '').trim();
-  const finishLogin = (user, role) => {
+  const finishLogin = (user, role, orgId = null, orgName = null) => {
     clearLoginFailures(req);
-    const token = createAdminSession(user, role);
+    const token = createAdminSession(user, role, orgId, orgName);
     setAdminCookie(res, token);
     logAudit(user, 'admin_login', 'admin', null, { ip: getRateKey(req), role });
-    res.json({ user, role, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+    res.json({ user, role, organization_id: orgId, organization_name: orgName, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
   };
-  db.get("SELECT * FROM admin_users WHERE username = ? AND active = 1", [normalizedUsername], (err, adminUser) => {
+  db.get(`SELECT au.*, o.name as org_name, o.status as org_status FROM admin_users au LEFT JOIN organizations o ON o.id = au.organization_id WHERE au.username = ? AND au.active = 1`, [normalizedUsername], (err, adminUser) => {
     if (err) return res.status(500).json({ error: err.message });
     if (adminUser) {
       return verifyPassword(password, adminUser.password_hash, (ok) => {
@@ -507,7 +527,10 @@ app.post('/api/admin/login', (req, res) => {
           recordLoginFailure(req);
           return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
         }
-        finishLogin(adminUser.username, adminUser.role || 'moderator');
+        if (adminUser.organization_id && adminUser.org_status && adminUser.org_status !== 'Active') {
+          return res.status(403).json({ error: 'Orqanizasiya aktiv deyil. Superadmin ilə əlaqə saxlayın.' });
+        }
+        finishLogin(adminUser.username, adminUser.role || 'moderator', adminUser.organization_id || null, adminUser.org_name || null);
       });
     }
     if (normalizedUsername !== ADMIN_USER) {
@@ -577,7 +600,13 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/session', requireAdmin, (req, res) => {
-  res.json({ user: req.admin.user, role: req.admin.role, expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000) });
+  res.json({
+    user: req.admin.user,
+    role: req.admin.role,
+    organization_id: req.admin.organization_id,
+    organization_name: req.admin.organization_name,
+    expiresInSeconds: Math.floor(ADMIN_SESSION_MS / 1000),
+  });
 });
 
 app.post('/api/superadmin/logout', requireSuperAdminAuth, (req, res) => {
@@ -1450,11 +1479,11 @@ app.post('/api/bookings', (req, res) => {
     const expiryDays = bookingExpiryDays(settings);
     const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
     const sql = `INSERT INTO bookings
-      (full_name, phone, email, university, faculty, gender, move_in, duration, tracking_code, place_id, note, document_name, document_type, document_path, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      (full_name, phone, email, university, faculty, gender, move_in, duration, tracking_code, place_id, note, document_name, document_type, document_path, expires_at, organization_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT organization_id FROM places WHERE id=?))`;
     db.run(sql, [
       fullName, phone, email, university, faculty, gender, moveIn, duration, code, placeId || null, note || '',
-      doc.document_name || null, doc.document_type || null, doc.document_path || null, expiresAt
+      doc.document_name || null, doc.document_type || null, doc.document_path || null, expiresAt, placeId || null
     ], function (err) {
       if (err) {
         removeStoredDocument(doc.document_path);
@@ -1518,24 +1547,39 @@ function sendStats(res) {
 app.get('/api/stats', (req, res) => sendStats(res));
 app.get('/api/admin/stats', requireAdmin, (req, res) => sendStats(res));
 
-// ---- Admin extended stats ----
+// ---- Admin extended stats (org-scoped when applicable) ----
 app.get('/api/admin/stats-extended', requireAdmin, (req, res) => {
+  const orgId = req.admin.organization_id;
   expireOldBookings(() => {
-    db.get(`SELECT
-      (SELECT count(*) FROM places)           AS totalPlaces,
-      (SELECT sum(total_spots) FROM places)   AS totalSpots,
-      (SELECT sum(free_spots) FROM places)    AS freeSpots,
-      (SELECT count(*) FROM bookings WHERE status='Pending')  AS pendingBookings,
-      (SELECT count(*) FROM bookings)         AS totalBookings,
-      (SELECT count(*) FROM students)         AS totalStudents,
-      (SELECT count(*) FROM students WHERE status='Approved') AS approvedStudents,
-      (SELECT count(*) FROM providers)        AS totalProviders,
-      (SELECT count(*) FROM providers WHERE status='Approved') AS approvedProviders,
-      (SELECT count(*) FROM bookings WHERE status='Approved') AS approvedBookings
-    `, [], (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(row || {});
-    });
+    if (orgId) {
+      db.get(`SELECT
+        (SELECT count(*) FROM places WHERE organization_id = ?)                                                        AS totalPlaces,
+        (SELECT sum(total_spots) FROM places WHERE organization_id = ?)                                               AS totalSpots,
+        (SELECT sum(free_spots) FROM places WHERE organization_id = ?)                                                AS freeSpots,
+        (SELECT count(*) FROM bookings b JOIN places p ON p.id=b.place_id WHERE p.organization_id=? AND b.status='Pending')  AS pendingBookings,
+        (SELECT count(*) FROM bookings b JOIN places p ON p.id=b.place_id WHERE p.organization_id=?)                 AS totalBookings,
+        (SELECT count(*) FROM bookings b JOIN places p ON p.id=b.place_id WHERE p.organization_id=? AND b.status='Approved') AS approvedBookings
+      `, [orgId, orgId, orgId, orgId, orgId, orgId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(row || {});
+      });
+    } else {
+      db.get(`SELECT
+        (SELECT count(*) FROM places)           AS totalPlaces,
+        (SELECT sum(total_spots) FROM places)   AS totalSpots,
+        (SELECT sum(free_spots) FROM places)    AS freeSpots,
+        (SELECT count(*) FROM bookings WHERE status='Pending')  AS pendingBookings,
+        (SELECT count(*) FROM bookings)         AS totalBookings,
+        (SELECT count(*) FROM students)         AS totalStudents,
+        (SELECT count(*) FROM students WHERE status='Approved') AS approvedStudents,
+        (SELECT count(*) FROM providers)        AS totalProviders,
+        (SELECT count(*) FROM providers WHERE status='Approved') AS approvedProviders,
+        (SELECT count(*) FROM bookings WHERE status='Approved') AS approvedBookings
+      `, [], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(row || {});
+      });
+    }
   });
 });
 
@@ -1584,43 +1628,124 @@ app.delete('/api/admin/admin-users/:id', requireAdmin, requireSuperAdmin, (req, 
   });
 });
 
-// ---- Admin: Get all places (no filters) ----
+// ---- Admin: Get places (org-scoped if org admin) ----
 app.get('/api/admin/places', requireAdmin, (req, res) => {
-  db.all("SELECT * FROM places ORDER BY id DESC", [], (err, rows) => {
+  const orgId = req.admin.organization_id;
+  const sql = orgId
+    ? "SELECT * FROM places WHERE organization_id = ? ORDER BY id DESC"
+    : "SELECT * FROM places ORDER BY id DESC";
+  const params = orgId ? [orgId] : [];
+  db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json((rows || []).map(expandPlace));
   });
 });
 
-// ---- Admin: Create place ----
-app.post('/api/admin/places', requireAdmin, (req, res) => {
-  res.status(403).json({ error: 'Yeni obyekt yalnız ev sahibi kabinetindən göndərilə bilər' });
+// ---- Admin: Create place (org admin only) ----
+app.post('/api/admin/places', requireAdmin, requireOrgAdmin, (req, res) => {
+  const body = { ...(req.body || {}) };
+  const p = normalizePlacePayload(body);
+  if (!p.name || !p.address || !p.price || !p.total_spots) {
+    return res.status(400).json({ error: 'Ad, ünvan, qiymət və yataq sayı zəruridir' });
+  }
+  const sql = `INSERT INTO places
+    (name, type, city, gender, price, total_spots, free_spots, female_occupied, male_occupied, female_free, male_free, wifi, utilities, lat, lng, images, virtual_tour, description, address, amenities, universities, organization_id, room_count, metro_distance_min, min_contract_months)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const params = [
+    p.name, p.type, p.city, p.gender, p.price, p.total_spots, p.free_spots,
+    p.female_occupied, p.male_occupied, p.female_free, p.male_free,
+    p.wifi, p.utilities, p.lat, p.lng,
+    JSON.stringify(p.images), p.virtual_tour, p.description, p.address,
+    JSON.stringify(p.amenities), JSON.stringify(p.universities), req.admin.organization_id,
+    p.room_count, p.metro_distance_min, p.min_contract_months,
+  ];
+  db.run(sql, params, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    logAudit(req.admin.user, 'place_created', 'place', this.lastID, { name: p.name, org_id: req.admin.organization_id });
+    res.json({ success: true, id: this.lastID });
+  });
 });
 
 // ---- Admin: Update place ----
-app.put('/api/admin/places/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/places/:id', requireAdmin, requireNotModerator, (req, res) => {
   const id = req.params.id;
+  const orgId = req.admin.organization_id;
   const p = normalizePlacePayload(req.body || {});
   if (!p.name) return res.status(400).json({ error: 'Ad zəruridir' });
-  updatePlaceRecord(id, p, function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    logAudit(req.admin.user, 'place_updated', 'place', id, { name: p.name });
-    res.json({ success: true });
-  });
+  const doUpdate = () => {
+    updatePlaceRecord(id, p, function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.admin.user, 'place_updated', 'place', id, { name: p.name });
+      res.json({ success: true });
+    });
+  };
+  if (orgId) {
+    db.get("SELECT id FROM places WHERE id = ? AND organization_id = ?", [id, orgId], (err, row) => {
+      if (!row) return res.status(403).json({ error: 'Bu obyekt sizin orqanizasiyanıza aid deyil' });
+      doUpdate();
+    });
+  } else {
+    doUpdate();
+  }
 });
 
 // ---- Admin: Delete place ----
-app.delete('/api/admin/places/:id', requireAdmin, (req, res) => {
-  db.run("DELETE FROM places WHERE id = ?", [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    logAudit(req.admin.user, 'place_deleted', 'place', req.params.id, {});
-    res.json({ success: true });
-  });
+app.delete('/api/admin/places/:id', requireAdmin, requireNotModerator, (req, res) => {
+  const id = req.params.id;
+  const orgId = req.admin.organization_id;
+  const doDelete = () => {
+    db.run("DELETE FROM places WHERE id = ?", [id], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.admin.user, 'place_deleted', 'place', id, {});
+      res.json({ success: true });
+    });
+  };
+  if (orgId) {
+    db.get("SELECT id FROM places WHERE id = ? AND organization_id = ?", [id, orgId], (err, row) => {
+      if (!row) return res.status(403).json({ error: 'Bu obyekt sizin orqanizasiyanıza aid deyil' });
+      doDelete();
+    });
+  } else {
+    doDelete();
+  }
+});
+
+// ---- Admin: Update occupancy only (moderators allowed) ----
+app.put('/api/admin/places/:id/occupancy', requireAdmin, (req, res) => {
+  const id = req.params.id;
+  const orgId = req.admin.organization_id;
+  const { female_occupied, female_free, male_occupied, male_free } = req.body || {};
+  const fo = parseInt(female_occupied, 10) || 0;
+  const ff = parseInt(female_free, 10) || 0;
+  const mo = parseInt(male_occupied, 10) || 0;
+  const mf = parseInt(male_free, 10) || 0;
+  const doUpdate = () => {
+    db.run(
+      "UPDATE places SET female_occupied=?, female_free=?, male_occupied=?, male_free=?, free_spots=(? + ?), updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      [fo, ff, mo, mf, ff, mf, id],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        logAudit(req.admin.user, 'occupancy_updated', 'place', id, { female_occupied: fo, female_free: ff, male_occupied: mo, male_free: mf });
+        res.json({ success: true });
+      }
+    );
+  };
+  if (orgId) {
+    db.get("SELECT id FROM places WHERE id = ? AND organization_id = ?", [id, orgId], (err, row) => {
+      if (!row) return res.status(403).json({ error: 'Bu obyekt sizin orqanizasiyanıza aid deyil' });
+      doUpdate();
+    });
+  } else {
+    doUpdate();
+  }
 });
 
 // ---- Admin: provider approvals ----
 app.get('/api/admin/providers', requireAdmin, (req, res) => {
-  db.all("SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers ORDER BY created_at DESC", [], (err, rows) => {
+  const orgId = req.admin.organization_id;
+  const where = orgId ? ' WHERE id IN (SELECT DISTINCT provider_id FROM places WHERE organization_id = ? AND provider_id IS NOT NULL)' : '';
+  const params = orgId ? [orgId] : [];
+  db.all(`SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers${where} ORDER BY created_at DESC`, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -1629,7 +1754,16 @@ app.get('/api/admin/providers', requireAdmin, (req, res) => {
 app.put('/api/admin/providers/:id/status', requireAdmin, (req, res) => {
   const status = req.body && req.body.status;
   const note = String((req.body && req.body.note) || '').slice(0, 500);
+  const orgId = req.admin.organization_id;
   if (!['Pending', 'Approved', 'Rejected'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  if (orgId) {
+    db.get("SELECT id FROM places WHERE provider_id = ? AND organization_id = ? LIMIT 1", [req.params.id, orgId], (chkErr, row) => {
+      if (chkErr) return res.status(500).json({ error: chkErr.message });
+      if (!row) return res.status(403).json({ error: 'Forbidden' });
+      doUpdate();
+    });
+  } else { doUpdate(); }
+  function doUpdate() {
   db.get("SELECT email, full_name FROM providers WHERE id = ?", [req.params.id], (selectErr, provider) => {
     if (selectErr) return res.status(500).json({ error: selectErr.message });
     db.run(
@@ -1645,6 +1779,7 @@ app.put('/api/admin/providers/:id/status', requireAdmin, (req, res) => {
       }
     );
   });
+  }
 });
 
 app.get('/api/admin/providers/:id/document', requireAdmin, (req, res) => {
@@ -1662,7 +1797,10 @@ app.get('/api/admin/providers/:id/document', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/students', requireAdmin, (req, res) => {
-  db.all("SELECT id, full_name, phone, email, university, status, admin_note, document_name, created_at, updated_at FROM students ORDER BY created_at DESC", [], (err, rows) => {
+  const orgId = req.admin.organization_id;
+  const where = orgId ? ' WHERE email IN (SELECT DISTINCT email FROM bookings WHERE organization_id = ?)' : '';
+  const params = orgId ? [orgId] : [];
+  db.all(`SELECT id, full_name, phone, email, university, status, admin_note, document_name, created_at, updated_at FROM students${where} ORDER BY created_at DESC`, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -1704,10 +1842,13 @@ app.get('/api/admin/students/:id/document', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/provider-listings', requireAdmin, (req, res) => {
+  const orgId = req.admin.organization_id;
+  const where = orgId ? ' WHERE l.provider_id IN (SELECT DISTINCT provider_id FROM places WHERE organization_id = ? AND provider_id IS NOT NULL)' : '';
+  const params = orgId ? [orgId] : [];
   db.all(`SELECT l.*, p.full_name as provider_name, p.company_name as provider_company, p.email as provider_email, p.phone as provider_phone
           FROM provider_listings l
-          JOIN providers p ON p.id = l.provider_id
-          ORDER BY l.created_at DESC`, [], (err, rows) => {
+          JOIN providers p ON p.id = l.provider_id${where}
+          ORDER BY l.created_at DESC`, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json((rows || []).map(expandPlace));
   });
@@ -1752,16 +1893,20 @@ app.put('/api/admin/provider-listings/:id/status', requireAdmin, (req, res) => {
   });
 });
 
-// ---- Admin: Bookings ----
+// ---- Admin: Bookings (org-scoped) ----
 app.get('/api/admin/bookings', requireAdmin, (req, res) => {
+  const orgId = req.admin.organization_id;
   expireOldBookings((expireErr) => {
     if (expireErr) return res.status(500).json({ error: expireErr.message });
+    const where = orgId ? ' AND p.organization_id = ?' : '';
+    const params = orgId ? [orgId] : [];
     db.all(`SELECT b.id, b.tracking_code, b.full_name, b.phone, b.email, b.university, b.faculty, b.gender,
-            b.move_in, b.duration, b.status, b.place_id, b.note, b.admin_note, b.document_name, b.document_type,
-            b.expires_at, b.created_at, b.updated_at, p.name as place_name
+            b.move_in, b.duration, b.status, b.place_id, b.organization_id, b.note, b.admin_note,
+            b.document_name, b.document_type, b.expires_at, b.created_at, b.updated_at, p.name as place_name
             FROM bookings b
             LEFT JOIN places p ON b.place_id = p.id
-            ORDER BY b.created_at DESC`, [], (err, rows) => {
+            WHERE 1=1${where}
+            ORDER BY b.created_at DESC`, params, (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows);
     });
@@ -1769,19 +1914,24 @@ app.get('/api/admin/bookings', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/verification-queue', requireAdmin, (req, res) => {
+  const orgId = req.admin.organization_id;
   const result = { providers: [], listings: [], students: [] };
-  db.all("SELECT id, full_name, provider_type, company_name, phone, email, status, id_document_name, created_at FROM providers WHERE status = 'Pending' ORDER BY created_at DESC", [], (providerErr, providers) => {
+  const provWhere = orgId ? " AND id IN (SELECT DISTINCT provider_id FROM places WHERE organization_id = ? AND provider_id IS NOT NULL)" : '';
+  const stuWhere  = orgId ? " AND email IN (SELECT DISTINCT email FROM bookings WHERE organization_id = ?)" : '';
+  const lstWhere  = orgId ? " AND l.provider_id IN (SELECT DISTINCT provider_id FROM places WHERE organization_id = ? AND provider_id IS NOT NULL)" : '';
+  const p1 = orgId ? [orgId] : [], p2 = orgId ? [orgId] : [], p3 = orgId ? [orgId] : [];
+  db.all(`SELECT id, full_name, provider_type, company_name, phone, email, status, id_document_name, created_at FROM providers WHERE status = 'Pending'${provWhere} ORDER BY created_at DESC`, p1, (providerErr, providers) => {
     if (providerErr) return res.status(500).json({ error: providerErr.message });
     result.providers = providers || [];
-    db.all("SELECT id, full_name, phone, email, university, status, document_name, created_at FROM students WHERE status = 'Pending' ORDER BY created_at DESC", [], (studentErr, students) => {
+    db.all(`SELECT id, full_name, phone, email, university, status, document_name, created_at FROM students WHERE status = 'Pending'${stuWhere} ORDER BY created_at DESC`, p2, (studentErr, students) => {
       if (studentErr) return res.status(500).json({ error: studentErr.message });
       result.students = students || [];
       db.all(`SELECT l.id, l.name, l.city, l.type, l.price, l.status, l.created_at,
               p.full_name as provider_name, p.email as provider_email, p.phone as provider_phone
               FROM provider_listings l
               JOIN providers p ON p.id = l.provider_id
-              WHERE l.status = 'Pending'
-              ORDER BY l.created_at DESC`, [], (listingErr, listings) => {
+              WHERE l.status = 'Pending'${lstWhere}
+              ORDER BY l.created_at DESC`, p3, (listingErr, listings) => {
         if (listingErr) return res.status(500).json({ error: listingErr.message });
         result.listings = listings || [];
         res.json(result);
@@ -1791,10 +1941,13 @@ app.get('/api/admin/verification-queue', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/reports', requireAdmin, (req, res) => {
+  const orgId = req.admin.organization_id;
+  const where = orgId ? ' WHERE p.organization_id = ?' : '';
+  const params = orgId ? [orgId] : [];
   db.all(`SELECT r.*, p.name as place_name
           FROM reports r
-          LEFT JOIN places p ON p.id = r.place_id
-          ORDER BY r.created_at DESC`, [], (err, rows) => {
+          JOIN places p ON p.id = r.place_id${where}
+          ORDER BY r.created_at DESC`, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -1816,7 +1969,14 @@ app.put('/api/admin/reports/:id/status', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/audit-logs', requireAdmin, (req, res) => {
-  db.all("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 200", [], (err, rows) => {
+  const orgId = req.admin.organization_id;
+  const where = orgId
+    ? ` WHERE actor IN (SELECT username FROM admin_users WHERE organization_id = ?)
+        OR (entity_type = 'booking' AND entity_id IN (SELECT id FROM bookings WHERE organization_id = ?))
+        OR (entity_type = 'place'   AND entity_id IN (SELECT id FROM places   WHERE organization_id = ?))`
+    : '';
+  const params = orgId ? [orgId, orgId, orgId] : [];
+  db.all(`SELECT * FROM audit_logs${where} ORDER BY created_at DESC LIMIT 200`, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -1871,6 +2031,11 @@ app.put('/api/admin/bookings/:id/status', requireAdmin, (req, res) => {
         db.run('ROLLBACK');
         return res.status(404).json({ error: 'Booking not found' });
       }
+      const orgId = req.admin.organization_id;
+      if (orgId && booking.organization_id && booking.organization_id !== orgId) {
+        db.run('ROLLBACK');
+        return res.status(403).json({ error: 'Bu rezervasiya sizin orqanizasiyanıza aid deyil' });
+      }
       if (booking.status === status) {
         db.run('COMMIT');
         return res.json({ success: true });
@@ -1914,6 +2079,11 @@ app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
         db.run('ROLLBACK');
         return res.status(404).json({ error: 'Booking not found' });
       }
+      const orgId = req.admin.organization_id;
+      if (orgId && booking.organization_id && booking.organization_id !== orgId) {
+        db.run('ROLLBACK');
+        return res.status(403).json({ error: 'Bu rezervasiya sizin orqanizasiyanıza aid deyil' });
+      }
       const finishDelete = () => {
         db.run("DELETE FROM bookings WHERE id = ?", [booking.id], (deleteErr) => {
           if (deleteErr) {
@@ -1938,6 +2108,223 @@ app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
       });
     });
   });
+});
+
+// ---- Superadmin: Platform stats ----
+app.get('/api/superadmin/platform-stats', requireSuperAdminAuth, (req, res) => {
+  db.get(`SELECT
+    (SELECT count(*) FROM organizations WHERE status='Active')                                        AS activeOrgs,
+    (SELECT count(*) FROM organizations WHERE status='Suspended')                                     AS suspendedOrgs,
+    (SELECT count(*) FROM organizations WHERE status='Pending')                                       AS pendingOrgs,
+    (SELECT count(*) FROM organizations)                                                              AS totalOrgs,
+    (SELECT count(*) FROM places)                                                                     AS totalPlaces,
+    (SELECT sum(total_spots) FROM places)                                                             AS totalSpots,
+    (SELECT sum(free_spots)  FROM places)                                                             AS freeSpots,
+    (SELECT sum(total_spots - free_spots) FROM places)                                                AS occupiedSpots,
+    (SELECT count(*) FROM students WHERE status='Approved')                                           AS approvedStudents,
+    (SELECT count(*) FROM students)                                                                   AS totalStudents,
+    (SELECT count(*) FROM students WHERE status='Pending')                                            AS pendingStudents,
+    (SELECT count(*) FROM providers WHERE status='Pending')                                           AS pendingProviders,
+    (SELECT count(*) FROM bookings WHERE status='Pending')                                            AS pendingBookings,
+    (SELECT count(*) FROM bookings WHERE status='Approved')                                           AS approvedBookings,
+    (SELECT count(*) FROM bookings WHERE status='Rejected')                                           AS rejectedBookings,
+    (SELECT count(*) FROM bookings)                                                                   AS totalBookings,
+    (SELECT count(*) FROM admin_users WHERE active=1 AND role='admin')                                AS activeAdmins,
+    (SELECT count(*) FROM admin_users WHERE active=1 AND role='moderator')                            AS activeModerators
+  `, [], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const r = row || {};
+    r.occupancyPct = r.totalSpots > 0 ? Math.round((r.occupiedSpots / r.totalSpots) * 100) : 0;
+    r.approvalRate  = r.totalBookings > 0 ? Math.round((r.approvedBookings / r.totalBookings) * 100) : 0;
+    res.json(r);
+  });
+});
+
+// ---- Superadmin: DB stats ----
+app.get('/api/superadmin/db-stats', requireSuperAdminAuth, (req, res) => {
+  const fs = require('fs');
+  let fileSize = 0;
+  try { fileSize = fs.statSync(dbPath).size; } catch {}
+  const tables = ['organizations','admin_users','places','bookings','students','providers','audit_logs','reports'];
+  const counts = {};
+  let pending = tables.length;
+  tables.forEach(t => {
+    db.get(`SELECT count(*) as n FROM ${t}`, [], (e, row) => {
+      counts[t] = row ? row.n : 0;
+      if (--pending === 0) res.json({ fileSizeBytes: fileSize, fileSizeMB: (fileSize / 1048576).toFixed(2), tables: counts });
+    });
+  });
+});
+
+// ---- Superadmin: Quick org status toggle ----
+app.put('/api/superadmin/organizations/:id/status', requireSuperAdminAuth, (req, res) => {
+  const { status } = req.body || {};
+  const allowed = ['Active', 'Suspended', 'Pending', 'Archived'];
+  if (!allowed.includes(status)) return res.status(400).json({ error: 'Yanlış status' });
+  db.run("UPDATE organizations SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", [status, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!this.changes) return res.status(404).json({ error: 'Orqanizasiya tapılmadı' });
+    logAudit(req.superadmin || 'superadmin', `org_status_${status.toLowerCase()}`, 'organization', req.params.id, { status });
+    res.json({ success: true });
+  });
+});
+
+// ---- Superadmin: Organizations ----
+app.get('/api/superadmin/organizations', requireSuperAdminAuth, (req, res) => {
+  db.all(`SELECT o.*,
+    (SELECT count(*) FROM admin_users au WHERE au.organization_id=o.id AND au.role='admin' AND au.active=1) AS adminCount,
+    (SELECT count(*) FROM admin_users au WHERE au.organization_id=o.id AND au.role='moderator' AND au.active=1) AS moderatorCount,
+    (SELECT count(*) FROM places p WHERE p.organization_id=o.id) AS placeCount,
+    (SELECT sum(p.total_spots) FROM places p WHERE p.organization_id=o.id) AS totalSpots,
+    (SELECT sum(p.free_spots)  FROM places p WHERE p.organization_id=o.id) AS freeSpots,
+    (SELECT count(*) FROM bookings b JOIN places p ON p.id=b.place_id WHERE p.organization_id=o.id AND b.status='Pending')  AS pendingBookings,
+    (SELECT count(*) FROM bookings b JOIN places p ON p.id=b.place_id WHERE p.organization_id=o.id AND b.status='Approved') AS approvedBookings
+    FROM organizations o ORDER BY o.created_at DESC`, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+app.post('/api/superadmin/organizations', requireSuperAdminAuth, (req, res) => {
+  const { name, type, contact_email, contact_phone } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'Orqanizasiya adı zəruridir' });
+  db.run(
+    "INSERT INTO organizations (name, type, contact_email, contact_phone) VALUES (?, ?, ?, ?)",
+    [String(name).trim(), type || 'hostel', String(contact_email || '').trim(), String(contact_phone || '').trim()],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.superadmin.user, 'organization_created', 'organization', this.lastID, { name });
+      res.json({ id: this.lastID });
+    }
+  );
+});
+
+app.put('/api/superadmin/organizations/:id', requireSuperAdminAuth, (req, res) => {
+  const { name, type, contact_email, contact_phone, status } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'Ad zəruridir' });
+  const safeStatus = ['Active', 'Suspended', 'Pending', 'Archived'].includes(status) ? status : 'Active';
+  db.run(
+    "UPDATE organizations SET name=?, type=?, contact_email=?, contact_phone=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    [String(name).trim(), type || 'hostel', String(contact_email || '').trim(), String(contact_phone || '').trim(), safeStatus, req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.superadmin.user, 'organization_updated', 'organization', req.params.id, { name });
+      res.json({ success: true });
+    }
+  );
+});
+
+// ---- Superadmin: Create org admin/moderator ----
+app.post('/api/superadmin/org-admins', requireSuperAdminAuth, (req, res) => {
+  const { organization_id, username, full_name, password, role } = req.body || {};
+  if (!organization_id || !username || !password || String(password).length < 8) {
+    return res.status(400).json({ error: 'Orqanizasiya, istifadəçi adı və min 8 simvol parol zəruridir' });
+  }
+  const safeRole = ['admin', 'moderator'].includes(role) ? role : 'admin';
+  hashPassword(password, (hashErr, passwordHash) => {
+    if (hashErr) return res.status(500).json({ error: hashErr.message });
+    db.run(
+      "INSERT INTO admin_users (username, full_name, role, password_hash, organization_id, active) VALUES (?,?,?,?,?,1)",
+      [String(username).trim(), String(full_name || '').trim(), safeRole, passwordHash, parseInt(organization_id, 10)],
+      function(err) {
+        if (err) {
+          if (String(err.message).includes('UNIQUE')) return res.status(409).json({ error: 'Bu istifadəçi adı artıq var' });
+          return res.status(500).json({ error: err.message });
+        }
+        logAudit(req.superadmin.user, 'org_admin_created', 'admin_user', this.lastID, { org_id: organization_id, username, role: safeRole });
+        res.json({ id: this.lastID });
+      }
+    );
+  });
+});
+
+// List admins of a specific org
+app.get('/api/superadmin/organizations/:id/admins', requireSuperAdminAuth, (req, res) => {
+  db.all(
+    "SELECT id, username, full_name, role, active, created_at FROM admin_users WHERE organization_id=? ORDER BY created_at DESC",
+    [req.params.id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    }
+  );
+});
+
+app.put('/api/superadmin/org-admins/:id/active', requireSuperAdminAuth, (req, res) => {
+  const active = req.body?.active ? 1 : 0;
+  db.run("UPDATE admin_users SET active=? WHERE id=?", [active, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    logAudit(req.superadmin.user, active ? 'org_admin_activated' : 'org_admin_deactivated', 'admin_user', req.params.id, {});
+    res.json({ success: true });
+  });
+});
+
+app.delete('/api/superadmin/org-admins/:id', requireSuperAdminAuth, (req, res) => {
+  db.run("DELETE FROM admin_users WHERE id=?", [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    logAudit(req.superadmin.user, 'org_admin_deleted', 'admin_user', req.params.id, {});
+    res.json({ success: true });
+  });
+});
+
+// ---- Admin: Org moderator management ----
+app.get('/api/admin/org/moderators', requireAdmin, requireOrgAdmin, (req, res) => {
+  db.all(
+    "SELECT id, username, full_name, role, active, created_at FROM admin_users WHERE organization_id=? AND role='moderator' ORDER BY created_at DESC",
+    [req.admin.organization_id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows || []);
+    }
+  );
+});
+
+app.post('/api/admin/org/moderators', requireAdmin, requireOrgAdmin, (req, res) => {
+  const { username, full_name, password } = req.body || {};
+  if (!username || !password || String(password).length < 8) {
+    return res.status(400).json({ error: 'İstifadəçi adı və min 8 simvol parol zəruridir' });
+  }
+  hashPassword(password, (hashErr, passwordHash) => {
+    if (hashErr) return res.status(500).json({ error: hashErr.message });
+    db.run(
+      "INSERT INTO admin_users (username, full_name, role, password_hash, organization_id, active) VALUES (?,?,'moderator',?,?,1)",
+      [String(username).trim(), String(full_name || '').trim(), passwordHash, req.admin.organization_id],
+      function(err) {
+        if (err) {
+          if (String(err.message).includes('UNIQUE')) return res.status(409).json({ error: 'Bu istifadəçi adı artıq var' });
+          return res.status(500).json({ error: err.message });
+        }
+        logAudit(req.admin.user, 'moderator_created', 'admin_user', this.lastID, { username, org_id: req.admin.organization_id });
+        res.json({ id: this.lastID });
+      }
+    );
+  });
+});
+
+app.put('/api/admin/org/moderators/:id/active', requireAdmin, requireOrgAdmin, (req, res) => {
+  const active = req.body?.active ? 1 : 0;
+  db.run(
+    "UPDATE admin_users SET active=? WHERE id=? AND organization_id=?",
+    [active, req.params.id, req.admin.organization_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      logAudit(req.admin.user, active ? 'moderator_activated' : 'moderator_deactivated', 'admin_user', req.params.id, {});
+      res.json({ success: true });
+    }
+  );
+});
+
+app.delete('/api/admin/org/moderators/:id', requireAdmin, requireOrgAdmin, (req, res) => {
+  db.run(
+    "DELETE FROM admin_users WHERE id=? AND organization_id=? AND role='moderator'",
+    [req.params.id, req.admin.organization_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: 'Moderator tapılmadı' });
+      logAudit(req.admin.user, 'moderator_deleted', 'admin_user', req.params.id, {});
+      res.json({ success: true });
+    }
+  );
 });
 
 setInterval(() => expireOldBookings(), 60 * 60 * 1000);

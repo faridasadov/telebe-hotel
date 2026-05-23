@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="az">
+  <head>
+    <meta charset="utf-8" />
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light");</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudentStay — Moderator</title>
+    <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
+    <style>
+      body { min-height: 100vh; }
+      .mod-shell { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+      .mod-login { min-height: calc(100vh - 80px); display: grid; place-items: center; }
+      .mod-login-card { width: min(420px,100%); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-xl); padding: 32px; }
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(155px,1fr)); gap: 14px; margin-bottom: 28px; }
+      .stat-card { background: linear-gradient(135deg,var(--brand),var(--accent-2)); color:#fff; border-radius: var(--r-lg); padding: 18px; }
+      .stat-card h4 { margin:0; font-size:12px; opacity:.85; text-transform:uppercase; letter-spacing:.05em; }
+      .stat-card strong { display:block; font-size:1.8rem; margin-top:4px; }
+      .tab-nav { display:inline-flex; gap:6px; margin-bottom:22px; padding:6px; border:1px solid var(--border); border-radius:var(--r-pill); background:var(--bg-subtle); }
+      .tab-btn { padding:10px 20px; cursor:pointer; font-weight:700; border-radius:var(--r-pill); color:var(--text-muted); transition:all .2s; }
+      .tab-btn.active { color:#fff; background:linear-gradient(135deg,var(--brand),var(--accent-2)); box-shadow:0 8px 20px rgba(13,148,136,.22); }
+      .mod-table { width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; }
+      .mod-table th,.mod-table td { padding:13px 15px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+      .mod-table th { background:var(--bg-subtle); font-size:12px; text-transform:uppercase; font-weight:700; }
+      .mod-table tr:last-child td { border-bottom:0; }
+      .mod-table tbody tr:hover { background:color-mix(in srgb,var(--brand-soft) 28%,transparent); }
+      .acts { display:flex; gap:6px; flex-wrap:wrap; }
+      .badge { display:inline-block; padding:3px 10px; border-radius:var(--r-pill); font-size:12px; font-weight:600; }
+      .badge-ok { background:rgba(16,185,129,.12); color:var(--success); }
+      .badge-no { background:rgba(239,68,68,.12); color:var(--danger); }
+      .badge-wait { background:rgba(245,158,11,.12); color:var(--warning); }
+      .note-err { color:var(--danger); font-weight:600; font-size:14px; min-height:18px; }
+      .occ-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+      .modal { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; }
+      .modal[aria-hidden="true"] { display:none; }
+      .modal-ov { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+      .modal-box { position:relative; z-index:1; background:var(--bg-card); border-radius:var(--r-lg); padding:28px; width:min(460px,92vw); box-shadow:var(--shadow-xl); }
+      .modal-close { position:absolute; top:12px; right:14px; background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted); }
+      .search-bar { width:100%; max-width:340px; padding:9px 15px; margin-bottom:12px; border:1px solid var(--border); border-radius:var(--r-pill); background:var(--bg-card); color:var(--text); font-size:14px; }
+      .search-bar:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(13,148,136,.15); }
+      [hidden] { display:none !important; }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header-inner">
+        <a class="logo" href="index.html">
+          <span class="logo-mark">S</span>
+          <span class="logo-text">Moderator</span>
+          <span id="modOrgName" style="font-size:13px;font-weight:500;color:var(--text-muted);margin-left:6px"></span>
+        </a>
+        <nav class="nav">
+          <a href="index.html">Sayta qayıt</a>
+          <button class="btn btn-sm" id="modLogout" type="button" hidden>Çıxış</button>
+        </nav>
+      </div>
+    </header>
+
+    <div class="mod-shell">
+      <section id="modLogin" class="mod-login">
+        <form id="modLoginForm" class="mod-login-card">
+          <h1 style="margin:0 0 20px">Moderator giriş</h1>
+          <label class="field"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
+          <label class="field"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Daxil ol</button>
+          <p class="note-err" id="modLoginNote" style="margin-top:10px"></p>
+        </form>
+      </section>
+
+      <div id="modApp" hidden>
+        <div class="stat-grid" id="modStats"></div>
+
+        <div class="tab-nav">
+          <div class="tab-btn active" data-tab="bookings">Rezervasiyalar</div>
+          <div class="tab-btn" data-tab="places">Elanlar</div>
+        </div>
+
+        <div id="tabBookings">
+          <h2 style="margin:0 0 12px">Rezervasiya müraciətləri</h2>
+          <input class="search-bar" id="srchBookings" placeholder="Axtar...">
+          <table class="mod-table">
+            <thead><tr><th>Tarix</th><th>Müştəri</th><th>Elan</th><th>Cins</th><th>Müddət</th><th>Status</th><th>Əməliyyat</th></tr></thead>
+            <tbody id="bookingsBody"></tbody>
+          </table>
+        </div>
+
+        <div id="tabPlaces" hidden>
+          <h2 style="margin:0 0 12px">Elanlar</h2>
+          <input class="search-bar" id="srchPlaces" placeholder="Axtar...">
+          <table class="mod-table">
+            <thead><tr><th>Ad</th><th>Tip</th><th>Qiymət</th><th>Doluluq (Q/O)</th><th>Əməliyyat</th></tr></thead>
+            <tbody id="placesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="occModal" class="modal" aria-hidden="true">
+      <div class="modal-ov" onclick="closeOccModal()"></div>
+      <div class="modal-box">
+        <button class="modal-close" onclick="closeOccModal()">&times;</button>
+        <h3 id="occModalTitle" style="margin:0 0 4px"></h3>
+        <p style="color:var(--text-muted);font-size:13px;margin:0 0 14px">Yer doluluğunu yenilə</p>
+        <form id="occForm" class="occ-form">
+          <input type="hidden" name="place_id">
+          <label class="field"><span>Qız — Dolu</span><input type="number" name="female_occupied" min="0" value="0"></label>
+          <label class="field"><span>Qız — Boş</span><input type="number" name="female_free" min="0" value="0"></label>
+          <label class="field"><span>Oğlan — Dolu</span><input type="number" name="male_occupied" min="0" value="0"></label>
+          <label class="field"><span>Oğlan — Boş</span><input type="number" name="male_free" min="0" value="0"></label>
+          <div style="grid-column:1/-1;display:flex;gap:10px;align-items:center">
+            <button class="btn btn-primary" type="submit">Yadda saxla</button>
+            <p class="note-err" id="occNote" style="margin:0"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="assets/moderator.js?v=20260524"></script>
+  </body>
+</html>

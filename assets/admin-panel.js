@@ -3,6 +3,25 @@ const API_URL = window.location.protocol === "file:" ? "http://localhost:3000/ap
 const qs = (selector) => document.querySelector(selector);
 const field = (form, name) => form && form.elements ? form.elements[name] : null;
 
+let _adminRole = null;
+
+function applySessionUI(session) {
+  _adminRole = session.role;
+  const orgDisplay = qs("#orgNameDisplay");
+  if (orgDisplay) {
+    orgDisplay.textContent = session.organization_name ? `— ${session.organization_name}` : "";
+  }
+  const btnMod = qs("#tabBtnModerators");
+  const btnNewPlace = qs("#btnNewPlace");
+  if (_adminRole === "admin") {
+    if (btnMod) btnMod.style.display = "";
+    if (btnNewPlace) btnNewPlace.style.display = "";
+  } else {
+    if (btnMod) btnMod.style.display = "none";
+    if (btnNewPlace) btnNewPlace.style.display = "none";
+  }
+}
+
 function escHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -82,7 +101,10 @@ qs("#loginForm").addEventListener("submit", async (e) => {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Giriş alınmadı");
-    await authFetch(`${API_URL}/admin/session`);
+    const sessRes = await authFetch(`${API_URL}/admin/session`);
+    const session = await sessRes.json();
+    if (session.role === 'moderator') { window.location.href = 'moderator.html'; return; }
+    applySessionUI(session);
     showAdmin();
     if (field(form, "password")) field(form, "password").value = "";
   } catch (err) {
@@ -106,7 +128,7 @@ qs("#logoutBtn").addEventListener("click", () => {
   showLogin();
 });
 
-const TAB_IDS = ["places", "bookings", "providers", "students", "providerListings", "verification", "reports", "audit", "adminUsers"];
+const TAB_IDS = ["places", "bookings", "providers", "students", "providerListings", "verification", "reports", "audit", "moderators"];
 
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -125,7 +147,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     if (tab === "verification") fetchVerificationQueue();
     if (tab === "reports") fetchReports();
     if (tab === "audit") fetchAuditLogs();
-    if (tab === "adminUsers") fetchAdminUsers();
+    if (tab === "moderators") fetchModerators();
   });
 });
 
@@ -166,8 +188,8 @@ async function fetchPlaces() {
       <td>${escHtml(p.price)} AZN</td>
       <td>Q: ${escHtml(p.female_occupied)}/${escHtml(p.female_free)} | O: ${escHtml(p.male_occupied)}/${escHtml(p.male_free)}</td>
       <td class="admin-actions">
-        <button class="btn btn-sm" onclick="editPlace(${p.id})">Redaktə</button>
-        <button class="btn btn-danger btn-sm" onclick="deletePlace(${p.id})">Sil</button>
+        ${_adminRole !== 'moderator' ? `<button class="btn btn-sm" onclick="editPlace(${p.id})">Redaktə</button>` : ''}
+        ${_adminRole !== 'moderator' ? `<button class="btn btn-danger btn-sm" onclick="deletePlace(${p.id})">Sil</button>` : ''}
       </td>
     </tr>
   `).join("");
@@ -520,34 +542,33 @@ async function deleteBooking(id) {
   fetchStats();
 }
 
-// Admin users management
-async function fetchAdminUsers() {
-  const response = await authFetch(`${API_URL}/admin/admin-users`);
+// Moderator management (org-scoped, admin role only)
+async function fetchModerators() {
+  const response = await authFetch(`${API_URL}/admin/org/moderators`);
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    qs("#adminUsersTableBody").innerHTML = `<tr><td colspan="5" style="color:var(--danger)">${escHtml(data.error || "Bu bölməyə giriş icazəniz yoxdur (yalnız super admin)")}</td></tr>`;
+    qs("#moderatorsTableBody").innerHTML = `<tr><td colspan="4" style="color:var(--danger)">${escHtml(data.error || "Bu bölməyə giriş icazəniz yoxdur")}</td></tr>`;
     return;
   }
   const data = await response.json();
-  qs("#adminUsersTableBody").innerHTML = data.map((u) => `
+  qs("#moderatorsTableBody").innerHTML = data.map((u) => `
     <tr>
-      <td>${u.id}</td>
       <td><strong>${escHtml(u.username)}</strong></td>
-      <td>${u.role === "superadmin" ? "Super Admin" : u.role === "support" ? "Dəstək" : "Moderator"}</td>
+      <td>${escHtml(u.full_name || "")}</td>
       <td><span class="status ${u.active ? "status-approved" : "status-rejected"}">${u.active ? "Aktiv" : "Qeyri-aktiv"}</span></td>
       <td>
         <div class="booking-actions">
-          <button class="btn btn-sm" onclick="toggleAdminUser(${u.id}, ${!u.active})">${u.active ? "Deaktiv et" : "Aktivləşdir"}</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteAdminUser(${u.id})">Sil</button>
+          <button class="btn btn-sm" onclick="toggleModerator(${u.id}, ${!u.active})">${u.active ? "Deaktiv et" : "Aktivləşdir"}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteModerator(${u.id})">Sil</button>
         </div>
       </td>
     </tr>
-  `).join("") || `<tr><td colspan="5">Heç bir admin tapılmadı.</td></tr>`;
-  attachSearch("searchAdminUsers", "adminUsersTableBody");
+  `).join("") || `<tr><td colspan="4">Heç bir moderator tapılmadı.</td></tr>`;
+  attachSearch("searchModerators", "moderatorsTableBody");
 }
 
-async function toggleAdminUser(id, active) {
-  const response = await authFetch(`${API_URL}/admin/admin-users/${id}/active`, {
+async function toggleModerator(id, active) {
+  const response = await authFetch(`${API_URL}/admin/org/moderators/${id}/active`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ active }),
@@ -557,39 +578,39 @@ async function toggleAdminUser(id, active) {
     alert(data.error || "Status dəyişmədi");
     return;
   }
-  fetchAdminUsers();
+  fetchModerators();
 }
 
-async function deleteAdminUser(id) {
-  if (!confirm("Bu admin hesabını silmək istədiyinizə əminsiniz?")) return;
-  const response = await authFetch(`${API_URL}/admin/admin-users/${id}`, { method: "DELETE" });
+async function deleteModerator(id) {
+  if (!confirm("Bu moderatoru silmək istədiyinizə əminsiniz?")) return;
+  const response = await authFetch(`${API_URL}/admin/org/moderators/${id}`, { method: "DELETE" });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    alert(data.error || "Admin silinmədi");
+    alert(data.error || "Moderator silinmədi");
     return;
   }
-  fetchAdminUsers();
+  fetchModerators();
 }
 
-qs("#adminUserForm")?.addEventListener("submit", async (e) => {
+qs("#moderatorForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.currentTarget;
   const payload = Object.fromEntries(new FormData(form).entries());
-  const errEl = qs("#adminUserError");
+  const errEl = qs("#moderatorError");
   if (errEl) errEl.textContent = "";
-  const response = await authFetch(`${API_URL}/admin/admin-users`, {
+  const response = await authFetch(`${API_URL}/admin/org/moderators`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    if (errEl) errEl.textContent = data.error || "Admin yaradılmadı";
-    else alert(data.error || "Admin yaradılmadı");
+    if (errEl) errEl.textContent = data.error || "Moderator yaradılmadı";
+    else alert(data.error || "Moderator yaradılmadı");
     return;
   }
   form.reset();
-  fetchAdminUsers();
+  fetchModerators();
 });
 
 // Place edit modal
@@ -671,15 +692,14 @@ placeForm?.addEventListener("submit", async (e) => {
   data.utilities = field(placeForm, "utilities").checked;
 
   const id = field(placeForm, "id").value;
-  if (!id) {
-    alert("Yeni obyekt ev sahibi kabinetindən göndərilməlidir.");
-    return;
-  }
-  const response = await authFetch(`${API_URL}/admin/places/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  const response = await authFetch(
+    id ? `${API_URL}/admin/places/${id}` : `${API_URL}/admin/places`,
+    {
+      method: id ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     alert(payload.error || "Xəta baş verdi");
@@ -696,12 +716,17 @@ async function loadDashboard() {
 }
 
 (async function initAdmin() {
+  let session;
   try {
-    await authFetch(`${API_URL}/admin/session`);
+    const res = await authFetch(`${API_URL}/admin/session`);
+    session = await res.json();
   } catch {
     showLogin();
     return;
   }
+
+  if (session.role === 'moderator') { window.location.href = 'moderator.html'; return; }
+  applySessionUI(session);
 
   showAdmin();
   try {
@@ -710,6 +735,14 @@ async function loadDashboard() {
     showAdminError(`Panel məlumatları yüklənmədi: ${err.message}`);
   }
 })();
+
+qs("#btnNewPlace")?.addEventListener("click", () => {
+  if (!placeForm || !modal) return;
+  placeForm.reset();
+  field(placeForm, "id").value = "";
+  qs("#modalTitle").textContent = "Yeni Obyekt";
+  openAdminModal();
+});
 
 window.editPlace = editPlace;
 window.deletePlace = deletePlace;
@@ -722,5 +755,5 @@ window.setStudentStatus = setStudentStatus;
 window.openStudentDocument = openStudentDocument;
 window.setProviderListingStatus = setProviderListingStatus;
 window.setReportStatus = setReportStatus;
-window.toggleAdminUser = toggleAdminUser;
-window.deleteAdminUser = deleteAdminUser;
+window.toggleModerator = toggleModerator;
+window.deleteModerator = deleteModerator;

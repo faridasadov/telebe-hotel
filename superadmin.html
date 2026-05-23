@@ -4,81 +4,183 @@
     <meta charset="utf-8" />
     <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light");</script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>StudentStay Superadmin</title>
+    <title>StudentStay — Superadmin</title>
     <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
     <style>
       body { min-height: 100vh; }
       [hidden] { display: none !important; }
-      .super-shell { max-width: 1280px; margin: 0 auto; padding: 48px 20px; }
-      .super-grid { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; align-items: start; }
-      .super-panel { background: color-mix(in srgb, var(--bg-card) 94%, transparent); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 24px; }
-      .super-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .login-wrap { min-height: calc(100vh - 180px); display: grid; place-items: center; }
-      .wide { grid-column: 1 / -1; }
-      .super-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
-      .super-table th, .super-table td { padding: 13px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
-      .super-table th { background: var(--bg-subtle); font-size: 12px; text-transform: uppercase; }
-      .super-table tr:last-child td { border-bottom: 0; }
-      .super-note { min-height: 22px; font-weight: 800; }
-      @media (max-width: 900px) { .super-grid, .super-form { grid-template-columns: 1fr; } }
+      .sa-shell { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+      .sa-login { min-height: calc(100vh - 80px); display: grid; place-items: center; }
+      .sa-login-card { width: min(440px,100%); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-xl); padding: 32px; }
+      .sa-tabs { display: inline-flex; gap: 6px; padding: 6px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--bg-subtle); margin-bottom: 28px; }
+      .sa-tab { padding: 10px 22px; border-radius: var(--r-pill); cursor: pointer; font-weight: 700; color: var(--text-muted); transition: all .2s; }
+      .sa-tab.active { background: linear-gradient(135deg,var(--brand),var(--accent-2)); color:#fff; box-shadow: 0 8px 20px rgba(13,148,136,.25); }
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(155px,1fr)); gap: 16px; margin-bottom: 32px; }
+      .stat-card { background: linear-gradient(135deg,var(--brand),var(--accent-2)); color:#fff; border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow-lg); }
+      .stat-card h4 { margin: 0; font-size: 12px; opacity: .85; text-transform: uppercase; letter-spacing:.05em; }
+      .stat-card strong { display: block; font-size: 2rem; margin-top: 6px; }
+      .sa-table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; margin-top: 16px; }
+      .sa-table th, .sa-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+      .sa-table th { background: var(--bg-subtle); font-size: 12px; text-transform: uppercase; font-weight: 700; }
+      .sa-table tr:last-child td { border-bottom: 0; }
+      .sa-table tbody tr:hover { background: color-mix(in srgb,var(--brand-soft) 30%,transparent); }
+      .sa-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; margin-bottom: 24px; }
+      .sa-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .sa-form .wide { grid-column: 1/-1; }
+      .sa-note { min-height: 20px; font-weight: 700; font-size: 14px; }
+      .tag { display: inline-block; padding: 3px 10px; border-radius: var(--r-pill); font-size: 12px; font-weight: 600; }
+      .tag-active { background: rgba(16,185,129,.12); color: var(--success); }
+      .tag-inactive { background: rgba(239,68,68,.12); color: var(--danger); }
+      .act { display: flex; gap: 8px; flex-wrap: wrap; }
+      .mini-stats { display: flex; gap: 10px; font-size: 12px; color: var(--text-muted); margin-top: 4px; flex-wrap: wrap; }
+      @media(max-width:700px){ .sa-form{ grid-template-columns:1fr; } .sa-form .wide{ grid-column:1; } }
     </style>
   </head>
   <body>
     <header class="header">
       <div class="container header-inner">
-        <a class="logo" href="index.html">
-          <span class="logo-mark">S</span>
-          <span class="logo-text">Superadmin</span>
-        </a>
+        <a class="logo" href="index.html"><span class="logo-mark">S</span><span class="logo-text">Superadmin</span></a>
         <nav class="nav">
           <a href="index.html">Sayta qayıt</a>
-          <button class="btn btn-sm" id="superLogout" type="button" hidden>Çıxış</button>
+          <button class="btn btn-sm" id="saLogout" type="button" hidden>Çıxış</button>
         </nav>
       </div>
     </header>
 
-    <main class="super-shell">
-      <p id="superGuard" class="super-note"></p>
-      <section class="login-wrap" id="superLoginPanel">
-        <form id="superLoginForm" class="super-panel super-form" style="max-width:460px;width:100%">
-          <h1 class="wide">Superadmin giriş</h1>
-          <label class="field wide"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
-          <label class="field wide"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
-          <button class="btn btn-primary btn-lg wide" type="submit">Daxil ol</button>
-          <p class="super-note wide" id="superLoginNote"></p>
+    <div class="sa-shell">
+      <p id="saGuard" class="sa-note" style="color:var(--danger)"></p>
+
+      <section class="sa-login" id="saLogin">
+        <form id="saLoginForm" class="sa-login-card">
+          <h1 style="margin:0 0 20px">Superadmin giriş</h1>
+          <label class="field"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
+          <label class="field"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Daxil ol</button>
+          <p class="sa-note" id="saLoginNote" style="margin-top:12px;color:var(--danger)"></p>
         </form>
       </section>
-      <div class="super-grid" id="superApp" hidden>
-        <section class="super-panel">
-          <h1>Sistem ayarları</h1>
-          <form id="settingsForm" class="super-form">
-            <label class="field"><span>Rezervasiya müddəti (gün)</span><input name="booking_expiry_days" type="number" min="1" max="14" required></label>
-            <label class="field"><span>Admin report e-poçtu</span><input name="admin_notify_email" type="email"></label>
-            <label class="field"><span>SMTP host</span><input name="smtp_host" placeholder="smtp.example.com"></label>
-            <label class="field"><span>SMTP port</span><input name="smtp_port" type="number" placeholder="587"></label>
-            <label class="field"><span>SMTP user</span><input name="smtp_user" autocomplete="username"></label>
-            <label class="field"><span>SMTP from</span><input name="smtp_from" type="email"></label>
-            <label class="field wide"><span>SMTP parol</span><input name="smtp_pass" type="password" autocomplete="new-password" placeholder="Boş saxlanılsa əvvəlki parol qalır"></label>
-            <button class="btn btn-primary wide" type="submit">Ayarları yadda saxla</button>
-            <p class="super-note wide" id="settingsNote"></p>
-          </form>
-        </section>
 
-        <section class="super-panel">
-          <h2>İstifadəçi nəzarəti</h2>
-          <div class="dashboard-cards">
-            <div class="d-card"><h3>Adminlər</h3><strong id="adminCount">-</strong></div>
-            <div class="d-card"><h3>Ev sahibləri</h3><strong id="providerCount">-</strong></div>
-            <div class="d-card"><h3>Tələbələr</h3><strong id="studentCount">-</strong></div>
+      <div id="saApp" hidden>
+        <div class="stat-grid" id="platformStats"></div>
+
+        <div class="sa-tabs">
+          <div class="sa-tab active" data-tab="orgs">Orqanizasiyalar</div>
+          <div class="sa-tab" data-tab="settings">Sistem ayarları</div>
+        </div>
+
+        <!-- Orgs tab -->
+        <div id="tabOrgs">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+            <h2 style="margin:0;flex:1">Orqanizasiyalar</h2>
+            <button class="btn btn-primary" id="btnNewOrg">+ Yeni orqanizasiya</button>
           </div>
-          <h3>Ev sahibləri</h3>
-          <table class="super-table"><thead><tr><th>Ad</th><th>Əlaqə</th><th>Status</th><th>Qeyd</th></tr></thead><tbody id="providersBody"></tbody></table>
-          <h3>Tələbələr</h3>
-          <table class="super-table"><thead><tr><th>Ad</th><th>Universitet</th><th>Status</th><th>Qeyd</th></tr></thead><tbody id="studentsBody"></tbody></table>
-        </section>
-      </div>
-    </main>
 
-    <script src="assets/superadmin.js?v=20260521-final"></script>
+          <div id="newOrgPanel" class="sa-panel" hidden>
+            <h3 style="margin:0 0 16px">Yeni orqanizasiya</h3>
+            <form id="newOrgForm" class="sa-form">
+              <label class="field"><span>Ad *</span><input name="name" required></label>
+              <label class="field"><span>Tip</span>
+                <select name="type">
+                  <option value="hostel">Yataqxana</option>
+                  <option value="university">Universitet</option>
+                  <option value="hotel">Hotel</option>
+                </select>
+              </label>
+              <label class="field"><span>Əlaqə e-poçtu</span><input name="contact_email" type="email"></label>
+              <label class="field"><span>Telefon</span><input name="contact_phone"></label>
+              <div class="wide" style="display:flex;gap:12px;align-items:center">
+                <button class="btn btn-primary" type="submit">Yarat</button>
+                <button class="btn" type="button" id="btnCancelOrg">Ləğv et</button>
+                <p class="sa-note" id="newOrgNote" style="margin:0;color:var(--danger)"></p>
+              </div>
+            </form>
+          </div>
+
+          <table class="sa-table">
+            <thead><tr><th>Orqanizasiya</th><th>Statistika</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
+            <tbody id="orgsBody"></tbody>
+          </table>
+
+          <!-- Org detail panel -->
+          <div id="orgDetail" class="sa-panel" hidden style="margin-top:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+              <h3 id="orgDetailTitle" style="margin:0"></h3>
+              <button class="btn btn-sm" id="btnCloseDetail">Bağla</button>
+            </div>
+
+            <details style="margin-bottom:24px">
+              <summary style="cursor:pointer;font-weight:700;padding:8px 0">Orqanizasiyanı redaktə et</summary>
+              <form id="editOrgForm" class="sa-form" style="margin-top:16px">
+                <input type="hidden" name="id">
+                <label class="field"><span>Ad</span><input name="name" required></label>
+                <label class="field"><span>Tip</span>
+                  <select name="type">
+                    <option value="hostel">Yataqxana</option>
+                    <option value="university">Universitet</option>
+                    <option value="hotel">Hotel</option>
+                  </select>
+                </label>
+                <label class="field"><span>E-poçt</span><input name="contact_email" type="email"></label>
+                <label class="field"><span>Telefon</span><input name="contact_phone"></label>
+                <label class="field"><span>Status</span>
+                  <select name="status"><option value="Active">Aktiv</option><option value="Inactive">Deaktiv</option></select>
+                </label>
+                <div style="display:flex;gap:12px;align-items:center">
+                  <button class="btn btn-primary" type="submit">Saxla</button>
+                  <p class="sa-note" id="editOrgNote" style="margin:0"></p>
+                </div>
+              </form>
+            </details>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <h4 style="margin:0">Admin / Moderatorlar</h4>
+              <button class="btn btn-sm btn-primary" id="btnNewAdminUser">+ Yeni istifadəçi</button>
+            </div>
+            <div id="newAdminPanel" class="sa-panel" hidden style="margin-bottom:16px">
+              <form id="newAdminForm" class="sa-form">
+                <input type="hidden" name="organization_id">
+                <label class="field"><span>İstifadəçi adı *</span><input name="username" required autocomplete="off"></label>
+                <label class="field"><span>Ad soyad</span><input name="full_name"></label>
+                <label class="field"><span>Şifrə * (min 8)</span><input name="password" type="password" required autocomplete="new-password"></label>
+                <label class="field"><span>Rol</span>
+                  <select name="role"><option value="admin">Admin</option><option value="moderator">Moderator</option></select>
+                </label>
+                <div class="wide" style="display:flex;gap:12px;align-items:center">
+                  <button class="btn btn-primary" type="submit">Yarat</button>
+                  <button class="btn" type="button" id="btnCancelAdmin">Ləğv et</button>
+                  <p class="sa-note" id="newAdminNote" style="margin:0;color:var(--danger)"></p>
+                </div>
+              </form>
+            </div>
+            <table class="sa-table">
+              <thead><tr><th>İstifadəçi adı</th><th>Ad</th><th>Rol</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
+              <tbody id="orgAdminsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Settings tab -->
+        <div id="tabSettings" hidden>
+          <div class="sa-panel" style="max-width:620px">
+            <h2 style="margin:0 0 20px">Sistem ayarları</h2>
+            <form id="settingsForm" class="sa-form">
+              <label class="field"><span>Rezervasiya müddəti (gün)</span><input name="booking_expiry_days" type="number" min="1" max="14" required></label>
+              <label class="field"><span>Admin bildiriş e-poçtu</span><input name="admin_notify_email" type="email"></label>
+              <label class="field"><span>SMTP host</span><input name="smtp_host" placeholder="smtp.example.com"></label>
+              <label class="field"><span>SMTP port</span><input name="smtp_port" type="number" placeholder="587"></label>
+              <label class="field"><span>SMTP istifadəçi</span><input name="smtp_user"></label>
+              <label class="field"><span>SMTP göndərən</span><input name="smtp_from" type="email"></label>
+              <label class="field wide"><span>SMTP parol (boş = əvvəlki qalır)</span><input name="smtp_pass" type="password" autocomplete="new-password" placeholder="Dəyişmək üçün yazın"></label>
+              <div class="wide" style="display:flex;gap:12px;align-items:center">
+                <button class="btn btn-primary" type="submit">Yadda saxla</button>
+                <p class="sa-note" id="settingsNote" style="margin:0"></p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/superadmin.js?v=20260524"></script>
   </body>
 </html>

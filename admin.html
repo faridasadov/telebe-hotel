@@ -48,6 +48,7 @@
         <a class="logo" href="index.html">
           <span class="logo-mark">S</span>
           <span class="logo-text">Admin Panel</span>
+          <span id="orgNameDisplay" style="font-size:13px;font-weight:500;color:var(--text-muted);margin-left:6px"></span>
         </a>
         <nav class="nav">
           <a href="index.html">Sayta qayıt</a>
@@ -86,13 +87,13 @@
         <div class="tab-btn" data-tab="verification">Yoxlama növbəsi</div>
         <div class="tab-btn" data-tab="reports">Reportlar</div>
         <div class="tab-btn" data-tab="audit">Fəaliyyət jurnalı</div>
-        <div class="tab-btn" data-tab="adminUsers">Admin hesabları</div>
+        <div class="tab-btn" data-tab="moderators" id="tabBtnModerators" style="display:none">Moderatorlar</div>
       </div>
 
       <div id="tabPlaces">
         <div style="display: flex; justify-content: space-between; align-items: center">
           <h2>Mövcud Obyektlər</h2>
-          <span class="muted-small">Yeni elanlar ev sahibi kabinetindən göndərilir və "Sahib elanları" bölməsində təsdiqlənir.</span>
+          <button class="btn btn-primary" id="btnNewPlace" style="display:none" type="button">+ Yeni elan</button>
         </div>
         <input id="searchPlaces" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
@@ -213,29 +214,24 @@
         </table>
       </div>
 
-      <div id="tabAdminUsers" style="display: none">
-        <h2>Admin hesabları</h2>
+      <div id="tabModerators" style="display: none">
+        <h2>Moderatorlar</h2>
         <div style="background:color-mix(in srgb,var(--bg-card) 92%,transparent);border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;margin-bottom:24px;max-width:520px">
-          <h3 style="margin:0 0 16px">Yeni admin əlavə et</h3>
-          <form id="adminUserForm" class="form-grid" style="grid-template-columns:1fr 1fr;gap:16px">
+          <h3 style="margin:0 0 16px">Yeni moderator əlavə et</h3>
+          <form id="moderatorForm" class="form-grid" style="grid-template-columns:1fr 1fr;gap:16px">
             <label class="field"><span>İstifadəçi adı</span><input name="username" required autocomplete="off"></label>
-            <label class="field"><span>Şifrə</span><input name="password" type="password" required autocomplete="new-password"></label>
-            <label class="field"><span>Rol</span>
-              <select name="role">
-                <option value="moderator">Moderator</option>
-                <option value="superadmin">Super Admin</option>
-              </select>
-            </label>
+            <label class="field"><span>Ad soyad</span><input name="full_name"></label>
+            <label class="field"><span>Şifrə (min 8)</span><input name="password" type="password" required autocomplete="new-password"></label>
             <div style="display:flex;align-items:flex-end">
               <button type="submit" class="btn btn-primary" style="width:100%">Əlavə et</button>
             </div>
-            <p id="adminUserError" class="login-error" style="grid-column:span 2;margin:0"></p>
+            <p id="moderatorError" class="login-error" style="grid-column:span 2;margin:0"></p>
           </form>
         </div>
-        <input id="searchAdminUsers" class="admin-search" type="text" placeholder="Axtar...">
+        <input id="searchModerators" class="admin-search" type="text" placeholder="Axtar...">
         <table class="admin-table">
-          <thead><tr><th>ID</th><th>İstifadəçi adı</th><th>Rol</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
-          <tbody id="adminUsersTableBody"></tbody>
+          <thead><tr><th>İstifadəçi adı</th><th>Ad</th><th>Status</th><th>Əməliyyatlar</th></tr></thead>
+          <tbody id="moderatorsTableBody"></tbody>
         </table>
       </div>
 

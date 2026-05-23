@@ -41,6 +41,7 @@ db.serialize(() => {
   db.run("ALTER TABLE places ADD COLUMN room_count INTEGER DEFAULT 1", () => {});
   db.run("ALTER TABLE places ADD COLUMN metro_distance_min INTEGER DEFAULT 0", () => {});
   db.run("ALTER TABLE places ADD COLUMN min_contract_months INTEGER DEFAULT 1", () => {});
+  db.run("ALTER TABLE places ADD COLUMN organization_id INTEGER REFERENCES organizations(id)", () => {});
 
   // ---- Bookings ----
   db.run(`CREATE TABLE IF NOT EXISTS bookings (
@@ -118,6 +119,18 @@ db.serialize(() => {
 
   db.run("ALTER TABLE students ADD COLUMN admin_note TEXT", () => {});
 
+  // ---- Organizations (universities / hostels managing their own places) ----
+  db.run(`CREATE TABLE IF NOT EXISTS organizations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'hostel',
+    contact_email TEXT,
+    contact_phone TEXT,
+    status TEXT DEFAULT 'Active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   // ---- Admin users / roles ----
   db.run(`CREATE TABLE IF NOT EXISTS admin_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,9 +139,36 @@ db.serialize(() => {
     role TEXT DEFAULT 'moderator',
     password_hash TEXT NOT NULL,
     active INTEGER DEFAULT 1,
+    organization_id INTEGER REFERENCES organizations(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
+  db.run("ALTER TABLE admin_users ADD COLUMN organization_id INTEGER REFERENCES organizations(id)", () => {});
+  db.run("ALTER TABLE bookings ADD COLUMN organization_id INTEGER REFERENCES organizations(id)", () => {});
+  db.run("ALTER TABLE places ADD COLUMN organization_id INTEGER REFERENCES organizations(id)", () => {});
+
+  // Populate bookings.organization_id from places for existing rows
+  db.run("UPDATE bookings SET organization_id = (SELECT organization_id FROM places WHERE id = bookings.place_id) WHERE organization_id IS NULL AND place_id IS NOT NULL", () => {});
+
+  // Map existing NULL-org places to a default org
+  db.get("SELECT COUNT(*) as cnt FROM places WHERE organization_id IS NULL", [], (err, row) => {
+    if (err || !row || !row.cnt) return;
+    db.get("SELECT id FROM organizations WHERE name = 'Platform (Default)'", [], (err2, org) => {
+      if (org) {
+        db.run("UPDATE places SET organization_id = ? WHERE organization_id IS NULL", [org.id], () => {
+          db.run("UPDATE bookings SET organization_id = ? WHERE organization_id IS NULL", [org.id], () => {});
+        });
+      } else {
+        db.run("INSERT INTO organizations (name, type, status) VALUES ('Platform (Default)', 'hostel', 'Active')", [], function() {
+          if (this.lastID) {
+            db.run("UPDATE places SET organization_id = ? WHERE organization_id IS NULL", [this.lastID], () => {
+              db.run("UPDATE bookings SET organization_id = ? WHERE organization_id IS NULL", [this.lastID], () => {});
+            });
+          }
+        });
+      }
+    });
+  });
 
   // ---- Property providers / owners ----
   db.run(`CREATE TABLE IF NOT EXISTS providers (
