@@ -113,31 +113,36 @@ window.setStatus = async function(id, status) {
   } catch {}
 };
 
+let _placesCache = [];
+
 async function loadPlaces() {
   try {
     const res = await mFetch(`${API}/admin/places`);
     const rows = await res.json();
+    _placesCache = rows;
     $('#placesBody').innerHTML = rows.map(p => `
       <tr>
         <td><strong>${esc(p.name)}</strong><br><small>${esc(p.address||'')}</small></td>
         <td>${typeLabel(p.type)}</td>
         <td>${esc(p.price)} AZN</td>
         <td>Q: ${p.female_occupied}/${p.female_free} | O: ${p.male_occupied}/${p.male_free}</td>
-        <td><button class="btn btn-sm" onclick="openOcc(${p.id},${JSON.stringify(esc(p.name))},${p.female_occupied},${p.female_free},${p.male_occupied},${p.male_free})">Doluluq yenilə</button></td>
+        <td><button class="btn btn-sm" onclick="openOcc(${p.id})">Doluluq yenilə</button></td>
       </tr>
     `).join('') || '<tr><td colspan="5">Elan yoxdur.</td></tr>';
     attachSearch('srchPlaces', 'placesBody');
   } catch {}
 }
 
-window.openOcc = function(id, name, fo, ff, mo, mf) {
-  $('#occModalTitle').textContent = name;
+window.openOcc = function(id) {
+  const p = _placesCache.find(x => x.id === id);
+  if (!p) return;
+  $('#occModalTitle').textContent = p.name;
   const f = $('#occForm');
   f.elements.place_id.value = id;
-  f.elements.female_occupied.value = fo;
-  f.elements.female_free.value = ff;
-  f.elements.male_occupied.value = mo;
-  f.elements.male_free.value = mf;
+  f.elements.female_occupied.value = p.female_occupied;
+  f.elements.female_free.value = p.female_free;
+  f.elements.male_occupied.value = p.male_occupied;
+  f.elements.male_free.value = p.male_free;
   $('#occNote').textContent = '';
   $('#occModal').setAttribute('aria-hidden', 'false');
 };

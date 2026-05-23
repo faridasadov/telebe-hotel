@@ -40,7 +40,7 @@
           <label class="field"><span>İstifadəçi adı</span><input name="username" autocomplete="username" required></label>
           <label class="field"><span>Şifrə</span><input name="password" type="password" autocomplete="current-password" required></label>
           <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Daxil ol</button>
-          <p class="note-err" id="modLoginNote" style="margin-top:10px"></p>
+          <p class="note-err" id="modLoginNote" style="margin-top:10px" aria-live="polite"></p>
         </form>
       </section>
 
@@ -48,8 +48,8 @@
         <div class="stat-grid" id="modStats"></div>
 
         <div class="tab-nav">
-          <div class="tab-btn active" data-tab="bookings">Rezervasiyalar</div>
-          <div class="tab-btn" data-tab="places">Elanlar</div>
+          <button type="button" class="tab-btn active" data-tab="bookings">Rezervasiyalar</button>
+          <button type="button" class="tab-btn" data-tab="places">Elanlar</button>
         </div>
 
         <div id="tabBookings">
@@ -100,6 +100,6 @@
       </div>
     </div>
 
-    <script src="assets/moderator.js?v=20260524"></script>
+    <script src="assets/moderator.js?v=20260525"></script>
   </body>
 </html>
