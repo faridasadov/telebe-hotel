@@ -23,8 +23,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
     <link rel="stylesheet" href="assets/styles.css?v=20260521-final" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   </head>
   <body>
 
@@ -84,10 +82,54 @@
             <label>
               <span data-i18n="hero.city">Şəhər</span>
               <select id="heroCity">
-                <option value="all" data-i18n="opt.allCities">Bütün şəhərlər</option>
-                <option value="baku" data-i18n="city.baku">Bakı</option>
-                <option value="ganja" data-i18n="city.ganja">Gəncə</option>
-                <option value="sumgayit" data-i18n="city.sumgayit">Sumqayıt</option>
+                <option value="all">Bütün şəhərlər</option>
+                <option value="baku">Bakı</option>
+                <option value="ganja">Gəncə</option>
+                <option value="sumgayit">Sumqayıt</option>
+                <option value="mingachevir">Mingəçevir</option>
+                <option value="nakhchivan">Naxçıvan</option>
+                <option value="lankaran">Lənkəran</option>
+                <option value="shirvan">Şirvan</option>
+                <option value="quba">Quba</option>
+                <option value="sheki">Şəki</option>
+                <option value="gabala">Qəbələ</option>
+                <option value="yevlakh">Yevlax</option>
+                <option value="shamkir">Şəmkir</option>
+                <option value="tovuz">Tovuz</option>
+                <option value="gazakh">Qazax</option>
+                <option value="agstafa">Ağstafa</option>
+                <option value="khachmaz">Xaçmaz</option>
+                <option value="zagatala">Zaqatala</option>
+                <option value="balakan">Balakən</option>
+                <option value="gakh">Qax</option>
+                <option value="oguz">Oğuz</option>
+                <option value="shamakhi">Şamaxı</option>
+                <option value="ismailli">İsmayıllı</option>
+                <option value="goychay">Göyçay</option>
+                <option value="agdash">Ağdaş</option>
+                <option value="ujar">Ucar</option>
+                <option value="goranboy">Goranboy</option>
+                <option value="dashkasan">Daşkəsən</option>
+                <option value="gedabay">Gədəbəy</option>
+                <option value="agdam">Ağdam</option>
+                <option value="tartar">Tərtər</option>
+                <option value="barda">Bərdə</option>
+                <option value="agcabadi">Ağcabədi</option>
+                <option value="fuzuli">Füzuli</option>
+                <option value="beylagan">Beyləqan</option>
+                <option value="imishli">İmişli</option>
+                <option value="saatli">Saatlı</option>
+                <option value="sabirabad">Sabirabad</option>
+                <option value="kurdamir">Kürdəmir</option>
+                <option value="hajigabul">Hacıqabul</option>
+                <option value="salyan">Salyan</option>
+                <option value="bilasuvar">Biləsuvar</option>
+                <option value="jalilabad">Cəlilabad</option>
+                <option value="masalli">Masallı</option>
+                <option value="lerik">Lerik</option>
+                <option value="astara">Astara</option>
+                <option value="shabran">Şabran</option>
+                <option value="siyazan">Siyəzən</option>
               </select>
             </label>
             <label>
@@ -195,10 +237,54 @@
                   <label class="field">
                     <span data-i18n="filters.city">Şəhər</span>
                     <select id="cityFilter">
-                      <option value="all" data-i18n="opt.all">Hamısı</option>
-                      <option value="baku" data-i18n="city.baku">Bakı</option>
-                      <option value="ganja" data-i18n="city.ganja">Gəncə</option>
-                      <option value="sumgayit" data-i18n="city.sumgayit">Sumqayıt</option>
+                      <option value="all">Hamısı</option>
+                      <option value="baku">Bakı</option>
+                      <option value="ganja">Gəncə</option>
+                      <option value="sumgayit">Sumqayıt</option>
+                      <option value="mingachevir">Mingəçevir</option>
+                      <option value="nakhchivan">Naxçıvan</option>
+                      <option value="lankaran">Lənkəran</option>
+                      <option value="shirvan">Şirvan</option>
+                      <option value="quba">Quba</option>
+                      <option value="sheki">Şəki</option>
+                      <option value="gabala">Qəbələ</option>
+                      <option value="yevlakh">Yevlax</option>
+                      <option value="shamkir">Şəmkir</option>
+                      <option value="tovuz">Tovuz</option>
+                      <option value="gazakh">Qazax</option>
+                      <option value="agstafa">Ağstafa</option>
+                      <option value="khachmaz">Xaçmaz</option>
+                      <option value="zagatala">Zaqatala</option>
+                      <option value="balakan">Balakən</option>
+                      <option value="gakh">Qax</option>
+                      <option value="oguz">Oğuz</option>
+                      <option value="shamakhi">Şamaxı</option>
+                      <option value="ismailli">İsmayıllı</option>
+                      <option value="goychay">Göyçay</option>
+                      <option value="agdash">Ağdaş</option>
+                      <option value="ujar">Ucar</option>
+                      <option value="goranboy">Goranboy</option>
+                      <option value="dashkasan">Daşkəsən</option>
+                      <option value="gedabay">Gədəbəy</option>
+                      <option value="agdam">Ağdam</option>
+                      <option value="tartar">Tərtər</option>
+                      <option value="barda">Bərdə</option>
+                      <option value="agcabadi">Ağcabədi</option>
+                      <option value="fuzuli">Füzuli</option>
+                      <option value="beylagan">Beyləqan</option>
+                      <option value="imishli">İmişli</option>
+                      <option value="saatli">Saatlı</option>
+                      <option value="sabirabad">Sabirabad</option>
+                      <option value="kurdamir">Kürdəmir</option>
+                      <option value="hajigabul">Hacıqabul</option>
+                      <option value="salyan">Salyan</option>
+                      <option value="bilasuvar">Biləsuvar</option>
+                      <option value="jalilabad">Cəlilabad</option>
+                      <option value="masalli">Masallı</option>
+                      <option value="lerik">Lerik</option>
+                      <option value="astara">Astara</option>
+                      <option value="shabran">Şabran</option>
+                      <option value="siyazan">Siyəzən</option>
                     </select>
                   </label>
                   <label class="field">
@@ -365,12 +451,66 @@
               <div id="placeGrid" class="place-grid"></div>
             </div>
 
-            <aside class="map-panel" aria-label="Map">
+            <aside class="map-panel" aria-label="Azərbaycan xəritəsi">
               <div class="map-head">
-                <strong data-i18n="map.title">Xəritə</strong>
-                <span id="mapStatus" data-i18n="map.loading">Yüklənir...</span>
+                <div class="map-head-row">
+                  <strong data-i18n="map.title">Xəritə</strong>
+                  <span class="map-live-badge"><span class="ss-map-livedot"></span> CANLI</span>
+                </div>
+                <span class="map-head-status" id="mapStatus">Azərbaycan · bütün şəhərlər</span>
               </div>
-              <div id="mapCanvas" class="map-canvas"></div>
+              <div id="mapStage" class="ss-map-stage">
+                <div id="mapWorld" class="ss-map-world">
+                  <div class="ss-map-aurora"></div>
+                  <svg width="100%" height="100%" viewBox="0 0 320 480" preserveAspectRatio="none"
+                       style="position:absolute;inset:0;opacity:0.35;pointer-events:none" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="ssMapStroke" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="rgba(94,234,212,0.7)"/>
+                        <stop offset="1" stop-color="rgba(196,181,253,0.7)"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M -20 60 Q 72 30 160 70 T 340 80" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" opacity="0.45"/>
+                    <path d="M -20 110 Q 84 80 166 118 T 340 128" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" stroke-dasharray="6 4" opacity="0.63"/>
+                    <path d="M -20 160 Q 96 130 172 166 T 340 176" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" opacity="0.45"/>
+                    <path d="M -20 210 Q 108 180 178 214 T 340 224" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" stroke-dasharray="6 4" opacity="0.63"/>
+                    <path d="M -20 260 Q 120 230 184 262 T 340 272" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" opacity="0.45"/>
+                    <path d="M -20 310 Q 132 280 190 310 T 340 320" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" stroke-dasharray="6 4" opacity="0.63"/>
+                    <path d="M -20 360 Q 144 330 196 358 T 340 368" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" opacity="0.45"/>
+                    <path d="M -20 410 Q 156 380 202 406 T 340 416" stroke="url(#ssMapStroke)" stroke-width="1.2" fill="none" stroke-dasharray="6 4" opacity="0.63"/>
+                    <path d="M 100 130 L 188 100 L 145 230 L 80 280 Z M 145 230 L 228 260 L 175 340"
+                          stroke="rgba(255,255,255,0.32)" stroke-width="1.2" stroke-dasharray="3 3" fill="none"/>
+                  </svg>
+                  <div class="ss-map-hex"></div>
+                  <div class="ss-map-radar"></div>
+                  <div class="ss-map-city" style="left:86%;top:38%">BAKI ✦</div>
+                  <div class="ss-map-city" style="left:26%;top:31%">GƏNCƏ ✦</div>
+                  <div class="ss-map-city" style="left:83%;top:33%">SUMQAYIT ✦</div>
+                  <div class="ss-map-city" style="left:10%;top:72%">NAXÇIVAN ✦</div>
+                  <div class="ss-map-city" style="left:40%;top:16%">ŞƏKİ ✦</div>
+                  <div id="mapPins"></div>
+                </div>
+                <!-- Compass -->
+                <div class="ss-map-compass" aria-hidden="true">
+                  <span style="top:3px">N</span>
+                  <span style="bottom:3px">S</span>
+                  <span style="left:4px">W</span>
+                  <span style="right:4px">E</span>
+                  <svg width="22" height="22" viewBox="0 0 24 24">
+                    <polygon points="12,3 14,12 12,21 10,12" fill="#34d399"/>
+                  </svg>
+                </div>
+                <!-- Zoom -->
+                <div class="ss-map-zoom">
+                  <button id="mapZoomIn" class="ss-map-zoom-btn" type="button" aria-label="Yaxınlaşdır">+</button>
+                  <div class="ss-map-zoom-readout" id="mapZoomReadout">100%</div>
+                  <button id="mapZoomOut" class="ss-map-zoom-btn" type="button" aria-label="Uzaqlaşdır">−</button>
+                  <button id="mapZoomReset" class="ss-map-zoom-btn" type="button" aria-label="Sıfırla"
+                          style="border-top:1px solid rgba(255,255,255,0.18);font-size:12px">⟳</button>
+                </div>
+                <!-- Info card (hidden until pin clicked) -->
+                <div id="mapInfocard" class="ss-map-infocard" style="display:none"></div>
+              </div>
             </aside>
           </div>
         </div>

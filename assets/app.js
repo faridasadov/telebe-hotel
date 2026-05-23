@@ -45,7 +45,6 @@ const getTheme = () => localStorage.getItem(STORE.theme) || "light";
 function applyTheme(theme) {
   localStorage.setItem(STORE.theme, theme);
   document.documentElement.setAttribute("data-theme", theme);
-  if (map) setTimeout(() => map.invalidateSize(), 50);
 }
 
 // ---------- Helpers ----------
@@ -1042,47 +1041,211 @@ document.querySelector("#trackingForm")?.addEventListener("submit", async (e) =>
   }
 });
 
-// ---------- Map ----------
-let map = null;
-let mapMarkers = [];
+// ---------- Custom SVG Map ----------
+// Azerbaijan cities: left% = (lon-44.8)/5.9*100, top% = (41.9-lat)/3.6*100
+const AZ_CITIES = [
+  { slug: "baku",        name: "Bakı",        left: 86, top: 41 },
+  { slug: "ganja",       name: "Gəncə",       left: 26, top: 34 },
+  { slug: "sumgayit",    name: "Sumqayıt",    left: 83, top: 36 },
+  { slug: "mingachevir", name: "Mingəçevir",  left: 38, top: 31 },
+  { slug: "nakhchivan",  name: "Naxçıvan",    left: 10, top: 75 },
+  { slug: "lankaran",    name: "Lənkəran",    left: 69, top: 88 },
+  { slug: "shirvan",     name: "Şirvan",      left: 70, top: 55 },
+  { slug: "quba",        name: "Quba",        left: 63, top: 15 },
+  { slug: "sheki",       name: "Şəki",        left: 40, top: 19 },
+  { slug: "gabala",      name: "Qəbələ",      left: 51, top: 25 },
+  { slug: "yevlakh",     name: "Yevlax",      left: 40, top: 36 },
+  { slug: "shamkir",     name: "Şəmkir",      left: 21, top: 30 },
+  { slug: "tovuz",       name: "Tovuz",       left: 14, top: 25 },
+  { slug: "gazakh",      name: "Qazax",       left: 9,  top: 23 },
+  { slug: "agstafa",     name: "Ağstafa",     left: 11, top: 22 },
+  { slug: "khachmaz",    name: "Xaçmaz",      left: 68, top: 12 },
+  { slug: "zagatala",    name: "Zaqatala",    left: 31, top: 8  },
+  { slug: "balakan",     name: "Balakən",     left: 27, top: 5  },
+  { slug: "gakh",        name: "Qax",         left: 36, top: 13 },
+  { slug: "oguz",        name: "Oğuz",        left: 45, top: 23 },
+  { slug: "shamakhi",    name: "Şamaxı",      left: 65, top: 35 },
+  { slug: "ismailli",    name: "İsmayıllı",   left: 57, top: 31 },
+  { slug: "goychay",     name: "Göyçay",      left: 50, top: 36 },
+  { slug: "agdash",      name: "Ağdaş",       left: 45, top: 35 },
+  { slug: "ujar",        name: "Ucar",        left: 48, top: 38 },
+  { slug: "goranboy",    name: "Goranboy",    left: 34, top: 36 },
+  { slug: "dashkasan",   name: "Daşkəsən",    left: 22, top: 38 },
+  { slug: "gedabay",     name: "Gədəbəy",     left: 17, top: 37 },
+  { slug: "agdam",       name: "Ağdam",       left: 36, top: 53 },
+  { slug: "tartar",      name: "Tərtər",      left: 36, top: 43 },
+  { slug: "barda",       name: "Bərdə",       left: 40, top: 43 },
+  { slug: "agcabadi",    name: "Ağcabədi",    left: 45, top: 51 },
+  { slug: "fuzuli",      name: "Füzuli",      left: 40, top: 64 },
+  { slug: "beylagan",    name: "Beyləqan",    left: 48, top: 59 },
+  { slug: "imishli",     name: "İmişli",      left: 55, top: 56 },
+  { slug: "saatli",      name: "Saatlı",      left: 59, top: 55 },
+  { slug: "sabirabad",   name: "Sabirabad",   left: 62, top: 53 },
+  { slug: "kurdamir",    name: "Kürdəmir",    left: 57, top: 43 },
+  { slug: "hajigabul",   name: "Hacıqabul",   left: 70, top: 52 },
+  { slug: "salyan",      name: "Salyan",      left: 71, top: 64 },
+  { slug: "bilasuvar",   name: "Biləsuvar",   left: 64, top: 68 },
+  { slug: "jalilabad",   name: "Cəlilabad",   left: 62, top: 77 },
+  { slug: "masalli",     name: "Masallı",     left: 65, top: 81 },
+  { slug: "lerik",       name: "Lerik",       left: 61, top: 87 },
+  { slug: "astara",      name: "Astara",      left: 69, top: 95 },
+  { slug: "shabran",     name: "Şabran",      left: 71, top: 19 },
+  { slug: "siyazan",     name: "Siyəzən",     left: 73, top: 23 },
+];
+
+// Register all city slugs in cityLocal
+AZ_CITIES.forEach(c => {
+  cityLocal.az[c.slug] = c.name;
+  cityLocal.ru[c.slug] = c.name;
+  cityLocal.en[c.slug] = c.name;
+});
+
+let _mapView = { scale: 1, x: 0, y: 0 };
+let _mapDrag = null;
+let _mapCityPlaces = {};
+let _mapInited = false;
+
+function _mapClamp(v) {
+  const stage = document.getElementById("mapStage");
+  const scale = Math.max(1, Math.min(3.4, v.scale));
+  if (!stage) return { ...v, scale };
+  const w = stage.offsetWidth, h = stage.offsetHeight;
+  const maxX = (w * (scale - 1)) / 2, maxY = (h * (scale - 1)) / 2;
+  return { scale, x: Math.max(-maxX, Math.min(maxX, v.x)), y: Math.max(-maxY, Math.min(maxY, v.y)) };
+}
+
+function _mapApplyView(smooth) {
+  const world = document.getElementById("mapWorld");
+  const stage = document.getElementById("mapStage");
+  if (!world) return;
+  if (smooth) stage?.classList.remove("dragging");
+  else stage?.classList.add("dragging");
+  world.style.transform = `translate(${_mapView.x}px,${_mapView.y}px) scale(${_mapView.scale})`;
+  const readout = document.getElementById("mapZoomReadout");
+  if (readout) readout.textContent = Math.round(_mapView.scale * 100) + "%";
+}
+
+function _mapZoomBy(factor, ox, oy) {
+  const stage = document.getElementById("mapStage");
+  if (!stage) return;
+  const rect = stage.getBoundingClientRect();
+  const cx = ox != null ? ox - rect.left - rect.width / 2 : 0;
+  const cy = oy != null ? oy - rect.top - rect.height / 2 : 0;
+  const ns = _mapView.scale * factor;
+  _mapView = _mapClamp({ scale: ns, x: cx - ((cx - _mapView.x) / _mapView.scale) * ns, y: cy - ((cy - _mapView.y) / _mapView.scale) * ns });
+  _mapApplyView(true);
+}
+
+function _mapReset() { _mapView = { scale: 1, x: 0, y: 0 }; _mapApplyView(true); _closeMapInfocard(); }
+
+function _closeMapInfocard() {
+  const card = document.getElementById("mapInfocard");
+  if (card) card.style.display = "none";
+  document.querySelectorAll(".ss-map-pin.active").forEach(p => p.classList.remove("active"));
+}
+
+function _showMapInfocard(city) {
+  const card = document.getElementById("mapInfocard");
+  if (!card) return;
+  const count = (_mapCityPlaces[city.slug] || []).length;
+  card.style.display = "block";
+  card.innerHTML = `
+    <button class="ss-map-infocard-close" onclick="_closeMapInfocard()" aria-label="Bağla">×</button>
+    <div class="ss-map-infocard-title">${escHtml(city.name)}</div>
+    <div class="ss-map-infocard-meta">${count} yerləşmə mövcuddur</div>
+    <button class="ss-map-infocard-link" onclick="_mapFilterCity('${city.slug}')">
+      ${count > 0 ? "Göstər →" : "Yaxında"}
+    </button>`;
+}
+
+function _mapFilterCity(slug) {
+  const cityEl = document.querySelector("#cityFilter");
+  if (cityEl) {
+    const opt = [...cityEl.options].find(o => o.value === slug);
+    if (opt) { cityEl.value = slug; cityEl.dispatchEvent(new Event("change")); }
+  }
+  _closeMapInfocard();
+  document.getElementById("places")?.scrollIntoView({ behavior: "smooth" });
+}
+
+function renderMapPins() {
+  const container = document.getElementById("mapPins");
+  if (!container) return;
+  container.innerHTML = AZ_CITIES.map(city => {
+    const count = (_mapCityPlaces[city.slug] || []).length;
+    const has = count > 0;
+    return `<div class="ss-map-pin${has ? "" : " dim"}"
+      style="left:${city.left}%;top:${city.top}%;${has ? "--pin-color:#34d399" : ""}"
+      title="${escHtml(city.name)}" data-city="${city.slug}">
+      ${has ? `<span class="ss-map-pin-pulse"></span>` : ""}
+      <span class="ss-map-pin-core">${has ? count : ""}</span>
+      ${has ? `<span class="ss-map-pin-label">${escHtml(city.name)}</span>` : ""}
+    </div>`;
+  }).join("");
+
+  container.querySelectorAll(".ss-map-pin:not(.dim)").forEach(pin => {
+    pin.addEventListener("click", e => {
+      e.stopPropagation();
+      document.querySelectorAll(".ss-map-pin.active").forEach(p => p.classList.remove("active"));
+      pin.classList.add("active");
+      const city = AZ_CITIES.find(c => c.slug === pin.dataset.city);
+      if (city) _showMapInfocard(city);
+    });
+  });
+}
 
 function initMap() {
-  const el = document.querySelector("#mapCanvas");
-  if (!el || map) return;
-  map = L.map(el, { zoomControl: true }).setView([40.4093, 49.8671], 7);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  }).addTo(map);
-  const status = document.querySelector("#mapStatus");
-  if (status) status.textContent = "Bakı · Gəncə · Sumqayıt";
+  if (_mapInited) return;
+  _mapInited = true;
+  const stage = document.getElementById("mapStage");
+  if (!stage) return;
+
+  stage.addEventListener("wheel", e => {
+    e.preventDefault();
+    _mapZoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX, e.clientY);
+  }, { passive: false });
+
+  stage.addEventListener("pointerdown", e => {
+    if (e.target.closest(".ss-map-pin") || e.target.closest(".ss-map-zoom") ||
+        e.target.closest(".ss-map-compass") || e.target.closest(".ss-map-infocard")) return;
+    _mapDrag = { sx: e.clientX, sy: e.clientY, bx: _mapView.x, by: _mapView.y };
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener("pointermove", e => {
+    if (!_mapDrag) return;
+    _mapView = _mapClamp({ ..._mapView, x: _mapDrag.bx + e.clientX - _mapDrag.sx, y: _mapDrag.by + e.clientY - _mapDrag.sy });
+    _mapApplyView(false);
+  });
+  const endDrag = () => { _mapDrag = null; stage.classList.remove("dragging"); };
+  stage.addEventListener("pointerup", endDrag);
+  stage.addEventListener("pointercancel", endDrag);
+
+  stage.addEventListener("click", e => {
+    if (!e.target.closest(".ss-map-pin") && !e.target.closest(".ss-map-zoom") &&
+        !e.target.closest(".ss-map-compass") && !e.target.closest(".ss-map-infocard")) _closeMapInfocard();
+  });
+
+  document.getElementById("mapZoomIn")?.addEventListener("click",    e => { e.stopPropagation(); _mapZoomBy(1.4); });
+  document.getElementById("mapZoomOut")?.addEventListener("click",   e => { e.stopPropagation(); _mapZoomBy(0.71); });
+  document.getElementById("mapZoomReset")?.addEventListener("click", e => { e.stopPropagation(); _mapReset(); });
 }
 
 function updateMapMarkers(places) {
-  if (!map) initMap();
-  if (!map) return;
-  mapMarkers.forEach((m) => map.removeLayer(m));
-  mapMarkers = [];
-  if (!places || places.length === 0) return;
-
-  const bounds = L.latLngBounds();
-  let has = false;
-  places.forEach((p) => {
-    if (p.lat && p.lng) {
-      const popup = `
-        <div style="font-family:Inter,sans-serif;min-width:180px">
-          <b>${escHtml(p.name)}</b><br>
-          ${escHtml(String(p.price))} AZN · ${escHtml(cityName(p.city))}<br>
-          <a href="#" onclick="event.preventDefault(); openPlaceModal(${p.id})" style="color:#0d9488;font-weight:700">${t("card.apply")} →</a>
-        </div>`;
-      const marker = L.marker([p.lat, p.lng]).addTo(map).bindPopup(popup);
-      marker.on("click", () => setPlaceSelection(String(p.id), p.name));
-      mapMarkers.push(marker);
-      bounds.extend([p.lat, p.lng]);
-      has = true;
-    }
+  _mapCityPlaces = {};
+  (places || []).forEach(p => {
+    const slug = (p.city || "").toLowerCase();
+    if (!_mapCityPlaces[slug]) _mapCityPlaces[slug] = [];
+    _mapCityPlaces[slug].push(p);
   });
-  if (has) map.fitBounds(bounds, { padding: [40, 40] });
+  const activeCities = Object.values(_mapCityPlaces).filter(a => a.length > 0).length;
+  const status = document.getElementById("mapStatus");
+  if (status) status.textContent = `Azərbaycan · ${activeCities} şəhər · ${places?.length || 0} yerləşmə`;
+  renderMapPins();
+  if (!_mapInited) initMap();
 }
+
+window._closeMapInfocard = _closeMapInfocard;
+window._mapFilterCity = _mapFilterCity;
 
 // Expose for popup
 window.openPlaceModal = openPlaceModal;
