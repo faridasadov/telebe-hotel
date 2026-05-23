@@ -7,7 +7,8 @@
     <title>StudentStay — Ev sahibi kabineti</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" /></noscript>
     <link rel="stylesheet" href="assets/styles.css?v=20260521-cab" />
     <style>
       body { min-height: 100vh; }
@@ -338,7 +339,7 @@
         <nav class="nav">
           <a href="index.html">Ana səhifə</a>
           <a href="index.html#places">Yaşayış yerləri</a>
-          <button class="btn btn-sm" id="ownerLogout" type="button" style="display:none">Çıxış</button>
+          <button class="btn btn-sm admin-hidden" id="ownerLogout" type="button">Çıxış</button>
         </nav>
         <div class="header-actions">
           <span class="eyebrow" style="background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(239,68,68,.1));color:var(--accent);font-size:11px;padding:4px 10px">Ev sahibi</span>
@@ -396,6 +397,8 @@
         </form>
       </div>
     </div>
+
+    <p id="ownerNote" style="min-height:20px;font-size:14px;font-weight:700;padding:0 24px;margin:8px 0 0"></p>
 
     <!-- ═══════════════ DASHBOARD ═══════════════ -->
     <div id="ownerPanel" class="admin-hidden">
@@ -541,7 +544,7 @@
       </div>
     </div>
 
-    <script src="assets/owner.js?v=20260521-cab"></script>
+    <script src="assets/owner.js?v=20260525" defer></script>
     <script>
       // Theme toggle for logo-mark
       (function() {

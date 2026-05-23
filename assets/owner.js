@@ -46,22 +46,30 @@ function statusLabel(status) {
 
 async function providerFetch(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: "same-origin" });
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 403) {
     showAuth();
     throw new Error("Sessiya bitib");
   }
   return response;
 }
 
+function ownerNote(msg, ok = false) {
+  const el = qs("#ownerNote");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok ? "var(--success)" : "var(--danger)";
+  if (ok && msg) setTimeout(() => { if (el.textContent === msg) { el.textContent = ""; el.style.color = ""; } }, 2500);
+}
+
 function showAuth() {
   qs("#ownerPanel")?.classList.add("admin-hidden");
-  if (qs("#ownerLogout")) qs("#ownerLogout").style.display = "none";
+  qs("#ownerLogout")?.classList.add("admin-hidden");
   qs("#loginCard")?.classList.remove("admin-hidden");
 }
 
 function showPanel(provider) {
   qs("#ownerPanel")?.classList.remove("admin-hidden");
-  if (qs("#ownerLogout")) qs("#ownerLogout").style.display = "";
+  qs("#ownerLogout")?.classList.remove("admin-hidden");
   qs("#loginCard")?.classList.add("admin-hidden");
   const letter = (provider.company_name || provider.full_name || "E").charAt(0).toUpperCase();
   const avatarEl = qs("#ownerAvatarLetter");
@@ -302,7 +310,7 @@ document.addEventListener("submit", async (e) => {
       body: JSON.stringify(data),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) return alert(payload.error || "Cavab göndərilmədi");
+    if (!response.ok) { ownerNote(payload.error || "Cavab göndərilmədi"); return; }
     await renderOwnerMessages(bookingId);
     return;
   }
@@ -376,8 +384,8 @@ document.addEventListener("click", async (e) => {
       body: JSON.stringify({ status: "Approved" }),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) return alert(data.error || "Xəta baş verdi");
-    alert("Rezervasiya təsdiqləndi");
+    if (!r.ok) { ownerNote(data.error || "Xəta baş verdi"); return; }
+    ownerNote("Rezervasiya təsdiqləndi.", true);
     await loadOwnerBookings();
     return;
   }
@@ -393,8 +401,8 @@ document.addEventListener("click", async (e) => {
       body: JSON.stringify({ status: "Rejected" }),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) return alert(data.error || "Xəta baş verdi");
-    alert("Rezervasiya rədd edildi");
+    if (!r.ok) { ownerNote(data.error || "Xəta baş verdi"); return; }
+    ownerNote("Rezervasiya rədd edildi.", true);
     await loadOwnerBookings();
     return;
   }
