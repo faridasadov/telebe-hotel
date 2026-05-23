@@ -198,11 +198,11 @@ function renderOrgs(orgs) {
       </td>
       <td>
         <div class="mini-stats">
-          <span>🏠 ${o.places_count ?? 0} elan</span>
-          <span>🔓 ${o.free_spots ?? 0} boş</span>
-          <span>📋 ${o.booking_count ?? 0} rezerv</span>
-          <span>👤 ${o.admin_count ?? 0} admin</span>
-          <span>🛡 ${o.moderator_count ?? 0} mod</span>
+          <span>🏠 ${o.placeCount ?? 0} elan</span>
+          <span>🔓 ${o.freeSpots ?? 0} boş</span>
+          <span>📋 ${(o.pendingBookings ?? 0) + (o.approvedBookings ?? 0)} rezerv</span>
+          <span>👤 ${o.adminCount ?? 0} admin</span>
+          <span>🛡 ${o.moderatorCount ?? 0} mod</span>
         </div>
       </td>
       <td><span class="badge ${
