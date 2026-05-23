@@ -5,10 +5,11 @@ function esc(v) {
   return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ── Fix 3: 403 now calls showLogin, not saGuard ───────────────────────────────
 async function saFetch(url, opts = {}) {
   const res = await fetch(url, { ...opts, credentials: 'same-origin' });
   if (res.status === 401) { showLogin(); throw new Error('401'); }
-  if (res.status === 403) { $('#saGuard').textContent = 'Bu səhifə yalnız superadmin üçündür.'; throw new Error('403'); }
+  if (res.status === 403) { showLogin('Bu səhifə yalnız superadmin üçündür.'); throw new Error('403'); }
   return res;
 }
 
@@ -22,21 +23,25 @@ function showLogin(msg = '') {
 function showApp() {
   $('#saLoginPage').hidden = true;
   $('#saApp').hidden = false;
-  $('#saGuard').textContent = '';
+  $('#saLoginNote').textContent = '';
   resetActivityTimer();
 }
 
+// ── Fix 14: note clears color when empty; Fix 11: ok notes auto-clear 3s ─────
 function note(id, text, ok = false) {
   const el = $(id);
   if (!el) return;
   el.textContent = text;
+  if (!text) { el.style.color = ''; return; }
   el.style.color = ok ? 'var(--success)' : 'var(--danger)';
+  if (ok) setTimeout(() => { if (el.textContent === text) { el.textContent = ''; el.style.color = ''; } }, 3000);
 }
 
-// ── Session timeout (30 min) ──────────────────────────────────────────────────
+// ── Fix 4: mousemove throttled 1/s; Fix 10: countdown every 1s ───────────────
 const TIMEOUT_MS = 30 * 60 * 1000;
 let _timeoutHandle = null;
 let _timeoutStart  = null;
+let _moveThrottle  = null;
 
 function resetActivityTimer() {
   clearTimeout(_timeoutHandle);
@@ -47,7 +52,6 @@ function resetActivityTimer() {
   }, TIMEOUT_MS);
 }
 
-// Countdown display
 setInterval(() => {
   if (!_timeoutStart || $('#saApp').hidden) return;
   const remaining = Math.max(0, TIMEOUT_MS - (Date.now() - _timeoutStart));
@@ -55,11 +59,15 @@ setInterval(() => {
   const s = Math.floor((remaining % 60000) / 1000);
   const bar = $('#saTimeoutBar');
   if (bar) bar.textContent = `⏱ ${m}:${String(s).padStart(2,'0')}`;
-}, 5000);
+}, 1000); // Fix 10: was 5000
 
-['click','keydown','mousemove','touchstart'].forEach(ev =>
+['click','keydown','touchstart'].forEach(ev =>
   document.addEventListener(ev, () => { if (!$('#saApp').hidden) resetActivityTimer(); }, { passive: true })
 );
+document.addEventListener('mousemove', () => { // Fix 4: throttle mousemove
+  if ($('#saApp').hidden || _moveThrottle) return;
+  _moveThrottle = setTimeout(() => { _moveThrottle = null; resetActivityTimer(); }, 1000);
+}, { passive: true });
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 function applyTheme(theme) {
@@ -70,18 +78,17 @@ function applyTheme(theme) {
 }
 
 $('#saThemeToggle').addEventListener('click', () => {
-  const current = document.documentElement.getAttribute('data-theme') || 'light';
-  applyTheme(current === 'dark' ? 'light' : 'dark');
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 });
 
-// Init theme icon on load
 (function() {
-  const t = localStorage.getItem('theme') || 'light';
   const icon = $('#saThemeIcon');
-  if (icon) icon.textContent = t === 'dark' ? '☀️' : '🌙';
+  if (icon) icon.textContent = (localStorage.getItem('theme') || 'light') === 'dark' ? '☀️' : '🌙';
 })();
 
-// ── Sidebar nav ───────────────────────────────────────────────────────────────
+// ── Fix 6 & 15: view tracking; refresh targets current view; dashboard reloads ─
+let _currentView = 'dashboard';
+
 const VIEWS = {
   dashboard: { el: '#viewDashboard', title: 'Dashboard' },
   orgs:      { el: '#viewOrgs',      title: 'Orqanizasiyalar' },
@@ -90,11 +97,14 @@ const VIEWS = {
 };
 
 function switchView(name) {
+  _currentView = name;
   Object.entries(VIEWS).forEach(([key, v]) => { $(v.el).hidden = key !== name; });
   document.querySelectorAll('.sa-nav-btn[data-view]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.view === name);
   });
   $('#saPageTitle').textContent = VIEWS[name]?.title ?? name;
+  // Fix 15: dashboard also reloads stats
+  if (name === 'dashboard') loadPlatformStats();
   if (name === 'settings')  loadSettings();
   if (name === 'orgs')      loadOrgs();
   if (name === 'auditlog')  loadAuditLogs();
@@ -104,8 +114,15 @@ document.querySelectorAll('.sa-nav-btn[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
 
-// ── Refresh ───────────────────────────────────────────────────────────────────
-$('#btnRefresh').addEventListener('click', () => Promise.all([loadPlatformStats(), loadOrgs()]));
+// Fix 8: sayta qayıt via event listener, not inline onclick
+$('#btnGotoSite').addEventListener('click', () => { window.location.href = 'index.html'; });
+
+// Fix 6: refresh targets current view
+$('#btnRefresh').addEventListener('click', async () => {
+  if (_currentView === 'dashboard') { await loadPlatformStats(); return; }
+  if (_currentView === 'orgs')      { await Promise.all([loadPlatformStats(), loadOrgs()]); return; }
+  if (_currentView === 'auditlog')  { await loadAuditLogs(); return; }
+});
 
 // ── Platform stats ────────────────────────────────────────────────────────────
 async function loadPlatformStats() {
@@ -142,8 +159,7 @@ window.setOrgStatus = async function(id, status) {
       body: JSON.stringify({ status }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Dəyişdirilmədi'); return; }
-    await loadOrgs();
-    await loadPlatformStats();
+    await Promise.all([loadOrgs(), loadPlatformStats()]);
   } catch {}
 };
 
@@ -165,6 +181,8 @@ function renderOrgs(orgs) {
   const tbody = $('#orgsBody');
   if (!orgs.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">Heç bir orqanizasiya yoxdur.</td></tr>';
+    $('#chkAll').checked = false;
+    updateBulkBar(); // Fix 2
     return;
   }
   tbody.innerHTML = orgs.map(o => `
@@ -205,11 +223,11 @@ function renderOrgs(orgs) {
     </tr>
   `).join('');
 
-  // Re-attach checkbox listeners after render
   document.querySelectorAll('.org-chk').forEach(chk => {
     chk.addEventListener('change', updateBulkBar);
   });
   $('#chkAll').checked = false;
+  updateBulkBar(); // Fix 2: always sync bulk bar after render
 }
 
 // ── Org search ────────────────────────────────────────────────────────────────
@@ -226,8 +244,7 @@ $('#chkAll').addEventListener('change', function() {
 
 function updateBulkBar() {
   const checked = document.querySelectorAll('.org-chk:checked');
-  const bar = $('#bulkBar');
-  bar.hidden = checked.length === 0;
+  $('#bulkBar').hidden = checked.length === 0;
   $('#bulkCount').textContent = checked.length;
 }
 
@@ -255,8 +272,7 @@ $('#btnBulkApply').addEventListener('click', async () => {
     document.querySelectorAll('.org-chk').forEach(c => { c.checked = false; });
     $('#chkAll').checked = false;
     updateBulkBar();
-    await loadOrgs();
-    await loadPlatformStats();
+    await Promise.all([loadOrgs(), loadPlatformStats()]);
   } catch (err) {
     alert(err.message);
   }
@@ -285,8 +301,7 @@ $('#newOrgForm').addEventListener('submit', async (e) => {
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(payload.error || 'Yaratmaq olmadı');
     closeNewOrgModal();
-    await loadOrgs();
-    await loadPlatformStats();
+    await Promise.all([loadOrgs(), loadPlatformStats()]);
   } catch (err) {
     note('#newOrgNote', err.message);
   }
@@ -295,28 +310,26 @@ $('#newOrgForm').addEventListener('submit', async (e) => {
 // ── Org detail modal ──────────────────────────────────────────────────────────
 let _currentOrgId = null;
 
+// Fix 1: use _allOrgs cache instead of re-fetching all orgs
 window.openOrgDetail = async function(id) {
   _currentOrgId = id;
   $('#orgDetailModal').setAttribute('aria-hidden', 'false');
-  $('#orgDetailTitle').textContent = '…';
   note('#editOrgNote', '');
   $('#orgMiniChart').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Yüklənir…</span>';
 
-  const editForm = $('#editOrgForm');
-  try {
-    const res = await saFetch(`${API}/superadmin/organizations`);
-    const orgs = await res.json();
-    const org = orgs.find(o => o.id === id);
-    if (org) {
-      $('#orgDetailTitle').textContent = org.name;
-      editForm.elements.id.value = org.id;
-      editForm.elements.name.value = org.name || '';
-      editForm.elements.type.value = org.type || 'hostel';
-      editForm.elements.contact_email.value = org.contact_email || '';
-      editForm.elements.contact_phone.value = org.contact_phone || '';
-      editForm.elements.status.value = org.status || 'Active';
-    }
-  } catch {}
+  const org = _allOrgs.find(o => o.id === id);
+  if (org) {
+    $('#orgDetailTitle').textContent = org.name;
+    const ef = $('#editOrgForm');
+    ef.elements.id.value           = org.id;
+    ef.elements.name.value         = org.name || '';
+    ef.elements.type.value         = org.type || 'hostel';
+    ef.elements.contact_email.value = org.contact_email || '';
+    ef.elements.contact_phone.value = org.contact_phone || '';
+    ef.elements.status.value       = org.status || 'Active';
+  } else {
+    $('#orgDetailTitle').textContent = `Orq #${id}`;
+  }
 
   $('#newAdminPanel').hidden = true;
   $('#newAdminForm').elements.organization_id.value = id;
@@ -341,7 +354,7 @@ $('#editOrgForm').addEventListener('submit', async (e) => {
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(payload.error || 'Saxlanmadı');
-    note('#editOrgNote', '✓ Saxlandı.', true);
+    note('#editOrgNote', '✓ Saxlandı.', true); // auto-clears in 3s
     $('#orgDetailTitle').textContent = data.name;
     await loadOrgs();
   } catch (err) {
@@ -354,12 +367,9 @@ async function loadOrgRecentBookings(id) {
   try {
     const res = await saFetch(`${API}/superadmin/organizations/${id}/recent-bookings`);
     const rows = await res.json();
-
-    // Build day map for last 7 days
     const days = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
+      const d = new Date(); d.setDate(d.getDate() - i);
       days.push(d.toISOString().slice(0, 10));
     }
     const map = {};
@@ -470,13 +480,13 @@ function populateAuditOrgFilter(orgs) {
 }
 
 async function loadAuditLogs(reset = true) {
-  if (reset) { _auditOffset = 0; }
+  if (reset) _auditOffset = 0;
   const orgId = $('#alOrgFilter').value;
   const params = new URLSearchParams({ limit: AUDIT_LIMIT, offset: _auditOffset });
   if (orgId) params.set('org_id', orgId);
   try {
     const res = await saFetch(`${API}/superadmin/audit-logs?${params}`);
-    _allAuditRows = await res.json();
+    _allAuditRows  = await res.json();
     _lastAuditRows = _allAuditRows.length;
     renderAuditLogs(_allAuditRows);
     const page = Math.floor(_auditOffset / AUDIT_LIMIT) + 1;
@@ -486,6 +496,7 @@ async function loadAuditLogs(reset = true) {
   } catch {}
 }
 
+// Fix 12: meta truncation shows … indicator
 function renderAuditLogs(rows) {
   const q = $('#alSearch').value.trim().toLowerCase();
   const filtered = q ? rows.filter(r =>
@@ -500,16 +511,19 @@ function renderAuditLogs(rows) {
     return;
   }
   tbody.innerHTML = filtered.map(r => {
-    const meta = (() => { try { return JSON.stringify(JSON.parse(r.meta), null, 0); } catch { return r.meta || ''; } })();
+    const metaRaw = (() => { try { return JSON.stringify(JSON.parse(r.meta), null, 0); } catch { return r.meta || ''; } })();
+    const metaDisplay = metaRaw.length > 80 ? metaRaw.slice(0, 80) + '…' : metaRaw; // Fix 12
     const dt = new Date(r.created_at).toLocaleString('az-AZ', { dateStyle:'short', timeStyle:'short' });
     return `
       <tr>
         <td style="white-space:nowrap;font-size:12px">${dt}</td>
         <td><strong>${esc(r.actor || '—')}</strong></td>
-        <td>${r.org_name ? `<span class="badge badge-info" style="font-size:11px">${esc(r.org_name)}</span>` : '<span style="color:var(--text-muted);font-size:12px">Platform</span>'}</td>
+        <td>${r.org_name
+          ? `<span class="badge badge-info" style="font-size:11px">${esc(r.org_name)}</span>`
+          : '<span style="color:var(--text-muted);font-size:12px">Platform</span>'}</td>
         <td><code style="font-size:12px;background:var(--bg-subtle);padding:2px 6px;border-radius:4px">${esc(r.action || '')}</code></td>
-        <td style="font-size:12px">${esc(r.entity_type || '')} ${r.entity_id ? `#${r.entity_id}` : ''}</td>
-        <td><span class="al-meta">${esc(meta).slice(0, 80)}</span></td>
+        <td style="font-size:12px">${esc(r.entity_type || '')}${r.entity_id ? ` #${r.entity_id}` : ''}</td>
+        <td><span class="al-meta" title="${esc(metaRaw)}">${esc(metaDisplay)}</span></td>
       </tr>
     `;
   }).join('');
@@ -525,15 +539,20 @@ $('#btnAuditNext').addEventListener('click', () => {
   if (_lastAuditRows >= AUDIT_LIMIT) { _auditOffset += AUDIT_LIMIT; loadAuditLogs(false); }
 });
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ── Settings — Fix 5: res.ok checked before res.json() ───────────────────────
 async function loadSettings() {
   try {
     const res = await saFetch(`${API}/superadmin/settings`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || 'Ayarlar yüklənmədi');
+    }
     const d = await res.json();
-    if (!res.ok) throw new Error(d.error || 'Ayarlar yüklənmədi');
     const form = $('#settingsForm');
     Object.entries(d).forEach(([k, v]) => { if (form.elements[k]) form.elements[k].value = v || ''; });
-  } catch {}
+  } catch (err) {
+    note('#settingsNote', err.message);
+  }
 }
 
 $('#settingsForm').addEventListener('submit', async (e) => {
@@ -548,7 +567,7 @@ $('#settingsForm').addEventListener('submit', async (e) => {
     const payload = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(payload.error || 'Saxlanmadı');
     e.target.elements.smtp_pass.value = '';
-    note('#settingsNote', '✓ Ayarlar saxlandı.', true);
+    note('#settingsNote', '✓ Ayarlar saxlandı.', true); // auto-clears 3s
   } catch (err) {
     note('#settingsNote', err.message);
   }
