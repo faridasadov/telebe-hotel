@@ -1412,18 +1412,14 @@ app.get('/api/places', (req, res) => {
     params.push(`%"code":"${university}"%`);
   }
 
-  db.all(query, params, (err, rows) => {
+  // Rewrite base query to JOIN providers — eliminates N+1
+  const joinedQuery = query.replace(
+    /^SELECT \* FROM places/,
+    'SELECT places.*, CASE WHEN prov.status = \'Approved\' THEN 1 ELSE 0 END AS verified_owner FROM places LEFT JOIN providers prov ON prov.id = places.provider_id'
+  );
+  db.all(joinedQuery, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    const ids = [...new Set((rows || []).map((row) => row.provider_id).filter(Boolean))];
-    if (!ids.length) return res.json((rows || []).map(expandPlace));
-    db.all(`SELECT id, status FROM providers WHERE id IN (${ids.map(() => '?').join(',')})`, ids, (providerErr, providers) => {
-      if (providerErr) return res.status(500).json({ error: providerErr.message });
-      const verified = new Set((providers || []).filter((p) => p.status === 'Approved').map((p) => p.id));
-      res.json((rows || []).map((row) => {
-        row.verified_owner = row.provider_id && verified.has(row.provider_id) ? 1 : 0;
-        return expandPlace(row);
-      }));
-    });
+    res.json((rows || []).map(expandPlace));
   });
 });
 
@@ -1797,10 +1793,13 @@ app.get('/api/admin/providers/:id/document', requireAdmin, (req, res) => {
     if (!row || !row.id_document_path) return res.status(404).json({ error: 'Document not found' });
     const fullPath = path.resolve(__dirname, row.id_document_path);
     if (!fullPath.startsWith(UPLOAD_DIR + path.sep) || !fs.existsSync(fullPath)) return res.status(404).json({ error: 'Document not found' });
-    res.json({
-      document_name: row.id_document_name,
-      document_type: row.id_document_type,
-      document_data: fs.readFileSync(fullPath).toString('base64'),
+    fs.readFile(fullPath, (readErr, data) => {
+      if (readErr) return res.status(500).json({ error: 'Sənəd oxuna bilmədi' });
+      res.json({
+        document_name: row.id_document_name,
+        document_type: row.id_document_type,
+        document_data: data.toString('base64'),
+      });
     });
   });
 });
@@ -1842,10 +1841,13 @@ app.get('/api/admin/students/:id/document', requireAdmin, (req, res) => {
     if (!row || !row.document_path) return res.status(404).json({ error: 'Document not found' });
     const fullPath = path.resolve(__dirname, row.document_path);
     if (!fullPath.startsWith(UPLOAD_DIR + path.sep) || !fs.existsSync(fullPath)) return res.status(404).json({ error: 'Document not found' });
-    res.json({
-      document_name: row.document_name,
-      document_type: row.document_type,
-      document_data: fs.readFileSync(fullPath).toString('base64'),
+    fs.readFile(fullPath, (readErr, data) => {
+      if (readErr) return res.status(500).json({ error: 'Sənəd oxuna bilmədi' });
+      res.json({
+        document_name: row.document_name,
+        document_type: row.document_type,
+        document_data: data.toString('base64'),
+      });
     });
   });
 });
@@ -2000,7 +2002,12 @@ app.get('/api/admin/bookings/:id/document', requireAdmin, (req, res) => {
       if (!fullPath.startsWith(UPLOAD_DIR + path.sep) || !fs.existsSync(fullPath)) {
         return res.status(404).json({ error: 'Document not found' });
       }
-      row.document_data = fs.readFileSync(fullPath).toString('base64');
+      return fs.readFile(fullPath, (readErr, data) => {
+        if (readErr) return res.status(500).json({ error: 'Sənəd oxuna bilmədi' });
+        row.document_data = data.toString('base64');
+        delete row.document_path;
+        res.json(row);
+      });
     }
     delete row.document_path;
     res.json(row);
@@ -2282,8 +2289,9 @@ app.get('/api/superadmin/audit-logs', requireSuperAdminAuth, (req, res) => {
   const offset = parseInt(req.query.offset) || 0;
   const orgId  = req.query.org_id ? parseInt(req.query.org_id) : null;
   const where  = orgId
-    ? `WHERE (au.organization_id = ${orgId} OR (al.entity_type = 'organization' AND CAST(al.entity_id AS INTEGER) = ${orgId}))`
+    ? "WHERE (au.organization_id = ? OR (al.entity_type = 'organization' AND CAST(al.entity_id AS INTEGER) = ?))"
     : '';
+  const auditParams = orgId ? [orgId, orgId, limit, offset] : [limit, offset];
   db.all(`
     SELECT al.id, al.actor, al.action, al.entity_type, al.entity_id, al.details AS meta, al.created_at,
            o.name AS org_name
@@ -2293,7 +2301,7 @@ app.get('/api/superadmin/audit-logs', requireSuperAdminAuth, (req, res) => {
     ${where}
     ORDER BY al.created_at DESC
     LIMIT ? OFFSET ?
-  `, [limit, offset], (err, rows) => {
+  `, auditParams, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });

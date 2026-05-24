@@ -4,6 +4,10 @@ const path = require('path');
 const dbPath = path.resolve(__dirname, 'studentstay.db');
 const db = new sqlite3.Database(dbPath);
 
+// WAL mode: better concurrent read performance, no blocking on reads during writes
+db.run("PRAGMA journal_mode=WAL");
+db.run("PRAGMA synchronous=NORMAL");
+
 db.serialize(() => {
   // ---- Places ----
   db.run(`CREATE TABLE IF NOT EXISTS places (
@@ -268,6 +272,18 @@ db.serialize(() => {
   )`);
 
   db.run("UPDATE places SET free_spots = COALESCE(female_free, 0) + COALESCE(male_free, 0)");
+
+  // Performance indexes for frequently queried columns
+  db.run("CREATE INDEX IF NOT EXISTS idx_places_org ON places(organization_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_bookings_org ON bookings(organization_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_bookings_place ON bookings(place_id)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(email)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_students_email ON students(email)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_students_token ON students(session_token)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_providers_token ON providers(session_token)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at)");
 
   // ---- Reviews ----
   db.run(`CREATE TABLE IF NOT EXISTS reviews (
