@@ -194,6 +194,8 @@ db.serialize(() => {
   )`);
 
   db.run("ALTER TABLE providers ADD COLUMN provider_type TEXT DEFAULT 'owner'", () => {});
+  db.run("ALTER TABLE providers ADD COLUMN city TEXT", () => {});
+  db.run("ALTER TABLE providers ADD COLUMN voen TEXT", () => {});
 
   db.run(`CREATE TABLE IF NOT EXISTS provider_listings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

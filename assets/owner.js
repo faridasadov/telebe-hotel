@@ -89,12 +89,65 @@ document.querySelectorAll("[data-owner-tab]").forEach((button) => {
   });
 });
 
+// ── Dynamic registration form behaviour ─────────────────────────────────────
+(function initRegisterForm() {
+  const typeSelect   = qs("#regProviderType");
+  const companyLabel = qs("#companyNameLabel");
+  const companyInput = qs("#regCompanyName");
+  const voenField    = qs("#voenField");
+  const voenInput    = qs("#regVoen");
+  const docLabel     = qs("#docLabel");
+
+  const COMPANY_LABELS = {
+    owner:          { label: "Şirkət adı (ixtiyari)",    required: false },
+    agency:         { label: "Agentlik adı",              required: true  },
+    hostel:         { label: "Hostel adı",                required: true  },
+    university_dorm:{ label: "Yataqxana / müəssisə adı", required: true  },
+  };
+  const DOC_LABELS = {
+    owner:          "Şəxsiyyət vəsiqəsi / mülkiyyət sənədi (PDF / şəkil)",
+    agency:         "Müəssisə qeydiyyat şəhadətnaməsi (PDF / şəkil)",
+    hostel:         "Müəssisə qeydiyyat şəhadətnaməsi (PDF / şəkil)",
+    university_dorm:"Universitetdən rəsmi məktub / lisenziya (PDF / şəkil)",
+  };
+  const NEEDS_VOEN = ["agency", "hostel", "university_dorm"];
+
+  function onTypeChange() {
+    const type = typeSelect?.value || "owner";
+    const cfg  = COMPANY_LABELS[type] || COMPANY_LABELS.owner;
+    if (companyLabel) companyLabel.textContent = cfg.label;
+    if (companyInput) companyInput.required    = cfg.required;
+    if (docLabel)     docLabel.textContent     = DOC_LABELS[type] || DOC_LABELS.owner;
+    const needsVoen = NEEDS_VOEN.includes(type);
+    voenField?.classList.toggle("admin-hidden", !needsVoen);
+    if (voenInput) voenInput.required = needsVoen;
+  }
+
+  typeSelect?.addEventListener("change", onTypeChange);
+  onTypeChange();
+})();
+
 qs("#providerRegisterForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const note = qs("#registerNote");
-  const fd = new FormData(e.currentTarget);
+  const fd   = new FormData(e.currentTarget);
   const data = Object.fromEntries(fd.entries());
+
+  // Client-side validations
+  if (data.password !== data.confirmPassword) {
+    return setNote(note, "Parollar uyğun gəlmir");
+  }
+  if (!qs("#regTerms")?.checked) {
+    return setNote(note, "İstifadə şərtlərini qəbul etməlisiniz");
+  }
+  if (!/^\+994[0-9]{9}$/.test(data.phone)) {
+    return setNote(note, "Telefon +994XXXXXXXXX formatında olmalıdır");
+  }
+
+  delete data.confirmPassword;
+  delete data.terms;
   data.document = await fileToPayload(fd.get("document"));
+
   try {
     const response = await fetch(`${API_URL}/providers/register`, {
       method: "POST",
@@ -104,7 +157,8 @@ qs("#providerRegisterForm")?.addEventListener("submit", async (e) => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Qeydiyyat alınmadı");
     e.currentTarget.reset();
-    setNote(note, "Qeydiyyat göndərildi. Admin təsdiqindən sonra giriş edə biləcəksiniz.", true);
+    qs("#regProviderType")?.dispatchEvent(new Event("change"));
+    setNote(note, "✓ Qeydiyyat göndərildi. Admin yoxlamasından sonra (1–2 iş günü) bildiriş gələcək.", true);
   } catch (err) {
     setNote(note, err.message);
   }

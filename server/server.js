@@ -831,9 +831,15 @@ app.put('/api/superadmin/students/:id/status', requireSuperAdminAuth, (req, res)
 
 // ---- Provider registration / login ----
 app.post('/api/providers/register', (req, res) => {
-  const { fullName, providerType, companyName, phone, email, password, document } = req.body || {};
+  const { fullName, providerType, companyName, phone, email, password, document, city, voen } = req.body || {};
   if (!fullName || !phone || !email || !password || String(password).length < 8 || !document || !document.data) {
     return res.status(400).json({ error: 'Ad, telefon, e-poçt, minimum 8 simvolluq şifrə və şəxsiyyət sənədi zəruridir' });
+  }
+  const VALID_TYPES = ['owner', 'agency', 'university_dorm', 'hostel'];
+  const safeType = VALID_TYPES.includes(providerType) ? providerType : 'owner';
+  const needsVoen = ['agency', 'university_dorm', 'hostel'].includes(safeType);
+  if (needsVoen && !String(voen || '').trim()) {
+    return res.status(400).json({ error: 'Bu hesab tipi üçün VÖEN tələb olunur' });
   }
   let doc = {};
   try {
@@ -844,11 +850,11 @@ app.post('/api/providers/register', (req, res) => {
   hashPassword(password, (hashErr, passwordHash) => {
     if (hashErr) return res.status(500).json({ error: 'Şifrə hazırlanmadı' });
     db.run(
-      `INSERT INTO providers (full_name, provider_type, company_name, phone, email, password_hash, id_document_name, id_document_type, id_document_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO providers (full_name, provider_type, company_name, phone, email, password_hash, id_document_name, id_document_type, id_document_path, city, voen)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         String(fullName).trim(),
-        ['owner', 'agency'].includes(providerType) ? providerType : 'owner',
+        safeType,
         String(companyName || '').trim(),
         String(phone).trim(),
         String(email).trim().toLowerCase(),
@@ -856,6 +862,8 @@ app.post('/api/providers/register', (req, res) => {
         doc.document_name || null,
         doc.document_type || null,
         doc.document_path || null,
+        String(city || '').trim() || null,
+        String(voen || '').trim() || null,
       ],
       function (err) {
         if (err) {

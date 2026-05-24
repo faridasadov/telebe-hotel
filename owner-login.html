@@ -368,31 +368,80 @@
         </form>
 
         <!-- Register -->
-        <form id="providerRegisterForm" class="cab-form admin-hidden">
+        <form id="providerRegisterForm" class="cab-form admin-hidden" novalidate>
           <div style="margin-bottom:6px">
             <h1 style="margin:0 0 4px;font-size:var(--fs-2xl);font-weight:800">Qeydiyyat</h1>
             <p style="margin:0;color:var(--text-muted);font-size:var(--fs-sm)">Elan sahibi hesabı yaradın</p>
           </div>
-          <label class="field"><span>Ad və soyad</span><input name="fullName" required></label>
+
+          <label class="field"><span>Ad və soyad (tam)</span><input name="fullName" autocomplete="name" required></label>
+
           <div class="cab-form-row">
-            <label class="field"><span>Hesab tipi</span>
-              <select name="providerType">
+            <label class="field">
+              <span>Hesab tipi</span>
+              <select name="providerType" id="regProviderType">
                 <option value="owner">Ev sahibi</option>
-                <option value="agency">Agentlik</option>
+                <option value="agency">Agentlik / Daşınmaz əmlak</option>
+                <option value="hostel">Hostel operatoru</option>
+                <option value="university_dorm">Universitet yataqxanası</option>
               </select>
             </label>
-            <label class="field"><span>Şirkət / yataqxana adı</span><input name="companyName"></label>
+            <label class="field" id="companyNameField">
+              <span id="companyNameLabel">Şirkət adı (ixtiyari)</span>
+              <input name="companyName" id="regCompanyName" autocomplete="organization">
+            </label>
           </div>
+
+          <label class="field admin-hidden" id="voenField">
+            <span>VÖEN (vergi ödəyicisinin eyniləşdirmə nömrəsi)</span>
+            <input name="voen" id="regVoen" placeholder="1234567890" maxlength="20">
+          </label>
+
           <div class="cab-form-row">
-            <label class="field"><span>Telefon</span><input name="phone" required placeholder="+994 XX XXX XX XX"></label>
-            <label class="field"><span>E-poçt</span><input name="email" type="email" required></label>
+            <label class="field">
+              <span>Telefon</span>
+              <input name="phone" type="tel" required placeholder="+994 XX XXX XX XX"
+                     pattern="^\+994[0-9]{9}$" title="+994 ilə başlayan 13 rəqəmli nömrə">
+            </label>
+            <label class="field">
+              <span>Şəhər / rayon</span>
+              <select name="city">
+                <option value="">— Seçin —</option>
+                <option value="baku">Bakı</option>
+                <option value="ganja">Gəncə</option>
+                <option value="sumgayit">Sumqayıt</option>
+                <option value="mingachevir">Mingəçevir</option>
+                <option value="nakhchivan">Naxçıvan</option>
+                <option value="shirvan">Şirvan</option>
+                <option value="lankaran">Lənkəran</option>
+                <option value="other">Digər</option>
+              </select>
+            </label>
           </div>
-          <label class="field"><span>Parol (min. 8 simvol)</span><input name="password" type="password" minlength="8" required></label>
-          <label class="field"><span>Şəxsiyyət / sahiblik sənədi (PDF / şəkil)</span><input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+
+          <label class="field"><span>E-poçt</span><input name="email" type="email" autocomplete="email" required></label>
+
+          <div class="cab-form-row">
+            <label class="field"><span>Parol (min. 8 simvol)</span><input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
+            <label class="field"><span>Parolu təsdiqlə</span><input name="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></label>
+          </div>
+
+          <label class="field">
+            <span id="docLabel">Şəxsiyyət vəsiqəsi / sahiblik sənədi (PDF / şəkil)</span>
+            <input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" required>
+          </label>
+
+          <label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;cursor:pointer">
+            <input type="checkbox" name="terms" id="regTerms" style="margin-top:3px;flex-shrink:0" required>
+            <span style="font-size:13px;color:var(--text-muted)">
+              <a href="#" style="color:var(--brand)">İstifadə şərtlərini</a> oxudum və qəbul edirəm. Platforma qaydalarına riayət edəcəyimə razılaşıram.
+            </span>
+          </label>
+
           <button class="btn btn-primary btn-lg" type="submit">Yoxlamaya göndər</button>
-          <p class="cab-note" id="registerNote"></p>
+          <p class="cab-note" id="registerNote" aria-live="polite"></p>
           <p style="color:var(--text-muted);font-size:13px;margin:0">
-            Qeydiyyat admin təsdiqindən sonra aktiv olur. Hər elan ayrıca yoxlanılır.
+            Qeydiyyat admin təsdiqindən sonra aktiv olur (adətən 1–2 iş günü). Hər elan ayrıca yoxlanılır.
           </p>
         </form>
       </div>
@@ -544,7 +593,7 @@
       </div>
     </div>
 
-    <script src="assets/owner.js?v=20260525" defer></script>
+    <script src="assets/owner.js?v=20260526" defer></script>
     <script>
       // Theme toggle for logo-mark
       (function() {
