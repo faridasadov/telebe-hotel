@@ -46,6 +46,13 @@ function typeLabel(type) {
   return escHtml(type || "—");
 }
 
+function providerTypeLabel(type) {
+  if (type === "agency")          return "Agentlik";
+  if (type === "hostel")          return "Hostel operatoru";
+  if (type === "university_dorm") return "Universitet yataqxanası";
+  return "Ev sahibi";
+}
+
 function statusClass(status) {
   if (status === "Approved" || status === "Resolved" || status === "Reviewed") return "status-approved";
   if (status === "Rejected" || status === "Cancelled" || status === "Expired") return "status-rejected";
@@ -248,7 +255,8 @@ async function fetchProviders() {
       <td>
         <div class="provider-meta">
           <strong>${escHtml(p.full_name)}</strong>
-          <small>${escHtml(p.provider_type === "agency" ? "Agentlik" : "Ev sahibi")} · ${escHtml(p.company_name || "")}</small>
+          <small>${escHtml(providerTypeLabel(p.provider_type))}${p.company_name ? " · " + escHtml(p.company_name) : ""}${p.city ? " · " + escHtml(p.city) : ""}</small>
+          ${p.voen ? `<span class="muted-small">VÖEN: ${escHtml(p.voen)}</span>` : ""}
           ${p.admin_note ? `<span class="muted-small">${escHtml(p.admin_note)}</span>` : ""}
         </div>
       </td>

@@ -786,7 +786,7 @@ app.put('/api/superadmin/settings', requireSuperAdminAuth, (req, res) => {
 });
 
 app.get('/api/superadmin/providers', requireSuperAdminAuth, (req, res) => {
-  db.all("SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers ORDER BY created_at DESC", [], (err, rows) => {
+  db.all("SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, city, voen, created_at, updated_at FROM providers ORDER BY created_at DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -1758,7 +1758,7 @@ app.get('/api/admin/providers', requireAdmin, (req, res) => {
   const orgId = req.admin.organization_id;
   const where = orgId ? ' WHERE id IN (SELECT DISTINCT provider_id FROM places WHERE organization_id = ? AND provider_id IS NOT NULL)' : '';
   const params = orgId ? [orgId] : [];
-  db.all(`SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, created_at, updated_at FROM providers${where} ORDER BY created_at DESC`, params, (err, rows) => {
+  db.all(`SELECT id, full_name, provider_type, company_name, phone, email, status, admin_note, city, voen, created_at, updated_at FROM providers${where} ORDER BY created_at DESC`, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
