@@ -114,6 +114,15 @@ db.serialize(() => {
     document_name TEXT,
     document_type TEXT,
     document_path TEXT,
+    id_document_name TEXT,
+    id_document_type TEXT,
+    id_document_path TEXT,
+    email_verified INTEGER DEFAULT 0,
+    email_verify_token TEXT,
+    email_verified_at DATETIME,
+    age_confirmed INTEGER DEFAULT 0,
+    terms_accepted_at DATETIME,
+    terms_version TEXT,
     status TEXT DEFAULT 'Pending',
     admin_note TEXT,
     session_token TEXT,
@@ -122,6 +131,16 @@ db.serialize(() => {
   )`);
 
   db.run("ALTER TABLE students ADD COLUMN admin_note TEXT", () => {});
+  db.run("ALTER TABLE students ADD COLUMN id_document_name TEXT", () => {});
+  db.run("ALTER TABLE students ADD COLUMN id_document_type TEXT", () => {});
+  db.run("ALTER TABLE students ADD COLUMN id_document_path TEXT", () => {});
+  db.run("ALTER TABLE students ADD COLUMN email_verified INTEGER DEFAULT 0", () => {});
+  db.run("ALTER TABLE students ADD COLUMN email_verify_token TEXT", () => {});
+  db.run("ALTER TABLE students ADD COLUMN email_verified_at DATETIME", () => {});
+  db.run("ALTER TABLE students ADD COLUMN age_confirmed INTEGER DEFAULT 0", () => {});
+  db.run("ALTER TABLE students ADD COLUMN terms_accepted_at DATETIME", () => {});
+  db.run("ALTER TABLE students ADD COLUMN terms_version TEXT", () => {});
+  db.run("UPDATE students SET email_verified = 1, age_confirmed = 1, terms_version = COALESCE(terms_version, '2026-05-24') WHERE status = 'Approved'", () => {});
 
   // ---- Organizations (universities / hostels managing their own places) ----
   db.run(`CREATE TABLE IF NOT EXISTS organizations (

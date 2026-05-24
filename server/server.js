@@ -21,6 +21,9 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@studentstay.az';
+const GOOGLE_STUDENT_CLIENT_ID = process.env.GOOGLE_STUDENT_CLIENT_ID || '';
+const GOOGLE_STUDENT_CLIENT_SECRET = process.env.GOOGLE_STUDENT_CLIENT_SECRET || '';
+const GOOGLE_STUDENT_REDIRECT_URI = process.env.GOOGLE_STUDENT_REDIRECT_URI || '';
 const COOKIE_NAME = 'studentstay_admin';
 const SUPER_COOKIE_NAME = 'studentstay_superadmin';
 const PROVIDER_COOKIE_NAME = 'studentstay_provider';
@@ -36,6 +39,7 @@ const loginAttempts = new Map();
 const publicPostAttempts = new Map();
 const adminSessions = new Map();
 const superAdminSessions = new Map();
+const googleStudentStates = new Map();
 
 const PUBLIC_POST_WINDOW_MS = 15 * 60 * 1000;
 const PUBLIC_POST_MAX = 20;
@@ -205,7 +209,7 @@ function requireProvider(req, res, next) {
 function requireStudent(req, res, next) {
   const token = parseCookies(req)[STUDENT_COOKIE_NAME] || '';
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  db.get("SELECT id, full_name, phone, email, university, status, admin_note FROM students WHERE session_token = ?", [token], (err, student) => {
+  db.get("SELECT id, full_name, phone, email, university, status, admin_note, email_verified, age_confirmed FROM students WHERE session_token = ?", [token], (err, student) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!student) return res.status(401).json({ error: 'Unauthorized' });
     req.student = student;
@@ -389,6 +393,31 @@ function notifyAdmin(subject, message) {
     const email = err ? ADMIN_NOTIFY_EMAIL : settingValue(settings, 'admin_notify_email', ADMIN_NOTIFY_EMAIL);
     if (email) sendMail(email, subject, message);
   });
+}
+
+function studentEmailVerifyLink(req, token) {
+  const origin = req.headers.origin || `${req.protocol || 'http'}://${req.get('host') || 'localhost:3000'}`;
+  return `${origin}/api/students/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+function publicBaseUrl(req) {
+  return req.headers.origin || `${req.protocol || 'http'}://${req.get('host') || 'localhost:3000'}`;
+}
+
+function googleStudentRedirectUri(req) {
+  return GOOGLE_STUDENT_REDIRECT_URI || `${publicBaseUrl(req)}/api/students/auth/google/callback`;
+}
+
+function decodeJwtPayload(token) {
+  const part = String(token || '').split('.')[1];
+  if (!part) return null;
+  const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+  try {
+    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
 }
 
 function notifyNewBooking(booking) {
@@ -811,7 +840,7 @@ app.put('/api/superadmin/providers/:id/status', requireSuperAdminAuth, (req, res
 });
 
 app.get('/api/superadmin/students', requireSuperAdminAuth, (req, res) => {
-  db.all("SELECT id, full_name, phone, email, university, status, admin_note, document_name, created_at, updated_at FROM students ORDER BY created_at DESC", [], (err, rows) => {
+  db.all("SELECT id, full_name, phone, email, university, status, admin_note, document_name, id_document_name, email_verified, age_confirmed, created_at, updated_at FROM students ORDER BY created_at DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -911,21 +940,41 @@ app.get('/api/providers/session', requireProvider, (req, res) => {
 
 // ---- Student registration / login ----
 app.post('/api/students/register', (req, res) => {
-  const { fullName, phone, email, university, password, document } = req.body || {};
-  if (!fullName || !email || !university || !password || String(password).length < 8 || !document || !document.data) {
-    return res.status(400).json({ error: 'Ad, e-poçt, universitet, tələbə sənədi və minimum 8 simvolluq şifrə zəruridir' });
+  const { fullName, phone, email, university, password, document, studentCard, idDocument, ageConfirmed, terms } = req.body || {};
+  const cardPayload = studentCard || document;
+  const idPayload = idDocument;
+  if (!fullName || !phone || !email || !university || !password || String(password).length < 8 || !cardPayload || !cardPayload.data || !idPayload || !idPayload.data) {
+    return res.status(400).json({ error: 'Ad, telefon, e-poçt, universitet, tələbə bileti, şəxsiyyət vəsiqəsi və minimum 8 simvolluq şifrə zəruridir' });
+  }
+  if (!ageConfirmed) {
+    return res.status(400).json({ error: 'Yaş təsdiqi zəruridir' });
+  }
+  if (!terms) {
+    return res.status(400).json({ error: 'İstifadə şərtlərini qəbul edin' });
   }
   let doc = {};
+  let idDoc = {};
   try {
-    doc = saveDocument(document);
+    doc = saveDocument(cardPayload);
+    idDoc = saveDocument(idPayload);
   } catch (err) {
+    removeStoredDocument(doc.document_path);
     return res.status(err.statusCode || 500).json({ error: err.message });
   }
   hashPassword(password, (hashErr, passwordHash) => {
-    if (hashErr) return res.status(500).json({ error: 'Şifrə hazırlanmadı' });
+    if (hashErr) {
+      removeStoredDocument(doc.document_path);
+      removeStoredDocument(idDoc.document_path);
+      return res.status(500).json({ error: 'Şifrə hazırlanmadı' });
+    }
+    const verifyToken = crypto.randomBytes(24).toString('hex');
     db.run(
-      `INSERT INTO students (full_name, phone, email, university, password_hash, document_name, document_type, document_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO students (
+        full_name, phone, email, university, password_hash,
+        document_name, document_type, document_path,
+        id_document_name, id_document_type, id_document_path,
+        email_verified, email_verify_token, age_confirmed, terms_accepted_at, terms_version, status
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 1, CURRENT_TIMESTAMP, ?, 'Pending')`,
       [
         String(fullName).trim(),
         String(phone || '').trim(),
@@ -935,19 +984,111 @@ app.post('/api/students/register', (req, res) => {
         doc.document_name || null,
         doc.document_type || null,
         doc.document_path || null,
+        idDoc.document_name || null,
+        idDoc.document_type || null,
+        idDoc.document_path || null,
+        verifyToken,
+        '2026-05-24',
       ],
       function (err) {
         if (err) {
           removeStoredDocument(doc.document_path);
+          removeStoredDocument(idDoc.document_path);
           if (String(err.message).includes('UNIQUE')) return res.status(409).json({ error: 'Bu e-poçt artıq qeydiyyatdan keçib' });
           return res.status(500).json({ error: err.message });
         }
         logAudit(String(email).trim().toLowerCase(), 'student_registered', 'student', this.lastID, { university });
-        notifyAdmin('StudentStay student verification', `New student registration\nName: ${fullName}\nEmail: ${email}\nUniversity: ${university}`);
-        res.json({ id: this.lastID, status: 'Pending' });
+        const link = studentEmailVerifyLink(req, verifyToken);
+        sendMail(String(email).trim().toLowerCase(), 'StudentStay — e-poçt təsdiqi',
+          `Salam ${fullName},\n\nRezervasiya funksiyasını aktivləşdirmək üçün e-poçtunuzu təsdiqləyin:\n${link}\n\nTələbə bileti və şəxsiyyət vəsiqəsi sistemdə saxlanıldı.`);
+        notifyAdmin('StudentStay student registration', `New student registration\nName: ${fullName}\nEmail: ${email}\nUniversity: ${university}\nEmail verification: pending`);
+        res.json({ id: this.lastID, status: 'Pending', emailVerificationRequired: true });
       }
     );
   });
+});
+
+app.get('/api/students/verify-email', (req, res) => {
+  const token = String((req.query && req.query.token) || '').trim();
+  if (!token) return res.status(400).send('Token zəruridir');
+  db.get("SELECT id, full_name, email, age_confirmed FROM students WHERE email_verify_token = ?", [token], (err, student) => {
+    if (err) return res.status(500).send('Server xətası');
+    if (!student) return res.status(400).send('Təsdiq linki etibarsızdır və ya artıq istifadə olunub');
+    if (!student.age_confirmed) return res.status(400).send('Yaş təsdiqi tamamlanmayıb');
+    db.run(
+      "UPDATE students SET email_verified = 1, email_verified_at = CURRENT_TIMESTAMP, email_verify_token = NULL, status = 'Approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [student.id],
+      function (updateErr) {
+        if (updateErr) return res.status(500).send('Server xətası');
+        logAudit(student.email, 'student_email_verified', 'student', student.id, {});
+        res.send('E-poçt təsdiqləndi. İndi StudentStay kabinetinə daxil olub rezervasiya göndərə bilərsiniz.');
+      }
+    );
+  });
+});
+
+app.get('/api/students/auth/google', (req, res) => {
+  if (!GOOGLE_STUDENT_CLIENT_ID || !GOOGLE_STUDENT_CLIENT_SECRET) {
+    return res.status(503).send('Google tələbə girişi üçün GOOGLE_STUDENT_CLIENT_ID və GOOGLE_STUDENT_CLIENT_SECRET konfiqurasiya olunmalıdır.');
+  }
+  const state = crypto.randomBytes(18).toString('hex');
+  googleStudentStates.set(state, Date.now() + 10 * 60 * 1000);
+  const params = new URLSearchParams({
+    client_id: GOOGLE_STUDENT_CLIENT_ID,
+    redirect_uri: googleStudentRedirectUri(req),
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    prompt: 'select_account',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+app.get('/api/students/auth/google/callback', async (req, res) => {
+  const code = String((req.query && req.query.code) || '');
+  const state = String((req.query && req.query.state) || '');
+  const stateExpiry = googleStudentStates.get(state);
+  googleStudentStates.delete(state);
+  if (!code || !stateExpiry || stateExpiry < Date.now()) {
+    return res.redirect('/student.html?google=invalid');
+  }
+  try {
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_STUDENT_CLIENT_ID,
+        client_secret: GOOGLE_STUDENT_CLIENT_SECRET,
+        redirect_uri: googleStudentRedirectUri(req),
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokenPayload = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok) throw new Error(tokenPayload.error_description || tokenPayload.error || 'Google token alınmadı');
+    const profile = decodeJwtPayload(tokenPayload.id_token);
+    const email = String((profile && profile.email) || '').trim().toLowerCase();
+    if (!email || profile.email_verified !== true) return res.redirect('/student.html?google=email_unverified');
+    db.get("SELECT * FROM students WHERE email = ?", [email], (err, student) => {
+      if (err) return res.redirect('/student.html?google=server_error');
+      if (!student) return res.redirect('/student.html?google=not_registered');
+      if (!student.age_confirmed) return res.redirect('/student.html?google=age_required');
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+      db.run(
+        "UPDATE students SET email_verified = 1, email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), email_verify_token = NULL, status = 'Approved', session_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [sessionToken, student.id],
+        (updateErr) => {
+          if (updateErr) return res.redirect('/student.html?google=server_error');
+          setStudentCookie(res, sessionToken);
+          logAudit(email, 'student_google_login', 'student', student.id, {});
+          res.redirect('/student.html?google=ok');
+        }
+      );
+    });
+  } catch (err) {
+    console.error('Google student auth failed:', err.message);
+    res.redirect('/student.html?google=failed');
+  }
 });
 
 app.post('/api/students/login', (req, res) => {
@@ -957,6 +1098,9 @@ app.post('/api/students/login', (req, res) => {
     if (!student) return res.status(401).json({ error: 'Yanlış e-poçt və ya şifrə' });
     verifyPassword(password, student.password_hash, (ok) => {
       if (!ok) return res.status(401).json({ error: 'Yanlış e-poçt və ya şifrə' });
+      if (!student.email_verified || !student.age_confirmed) {
+        return res.status(403).json({ error: 'Rezervasiya üçün e-poçt və yaş təsdiqi tamamlanmalıdır' });
+      }
       const token = crypto.randomBytes(32).toString('hex');
       db.run("UPDATE students SET session_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [token, student.id], (updateErr) => {
         if (updateErr) return res.status(500).json({ error: updateErr.message });
@@ -1480,34 +1624,41 @@ app.post('/api/bookings', (req, res) => {
   if (!fullName || !phone || !email || !university || !gender || !moveIn || !duration) {
     return res.status(400).json({ error: 'Zəruri sahələr doldurulmayıb' });
   }
-  let doc = {};
-  try {
-    doc = saveDocument(document);
-  } catch (err) {
-    return res.status(err.statusCode || 500).json({ error: err.message });
-  }
-  const code = trackingCode();
-  getSettings((settingsErr, settings) => {
-    if (settingsErr) {
-      removeStoredDocument(doc.document_path);
-      return res.status(500).json({ error: settingsErr.message });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  db.get("SELECT id, email_verified, age_confirmed FROM students WHERE lower(email) = lower(?)", [normalizedEmail], (studentErr, student) => {
+    if (studentErr) return res.status(500).json({ error: studentErr.message });
+    if (!student || !student.email_verified || !student.age_confirmed) {
+      return res.status(403).json({ error: 'Rezervasiya üçün əvvəl tələbə hesabında e-poçt və yaş təsdiqi tamamlanmalıdır' });
     }
-    const expiryDays = bookingExpiryDays(settings);
-    const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
-    const sql = `INSERT INTO bookings
-      (full_name, phone, email, university, faculty, gender, move_in, duration, tracking_code, place_id, note, document_name, document_type, document_path, expires_at, organization_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT organization_id FROM places WHERE id=?))`;
-    db.run(sql, [
-      fullName, phone, email, university, faculty, gender, moveIn, duration, code, placeId || null, note || '',
-      doc.document_name || null, doc.document_type || null, doc.document_path || null, expiresAt, placeId || null
-    ], function (err) {
-      if (err) {
+    let doc = {};
+    try {
+      doc = saveDocument(document);
+    } catch (err) {
+      return res.status(err.statusCode || 500).json({ error: err.message });
+    }
+    const code = trackingCode();
+    getSettings((settingsErr, settings) => {
+      if (settingsErr) {
         removeStoredDocument(doc.document_path);
-        return res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: settingsErr.message });
       }
-      logAudit(String(email).trim().toLowerCase(), 'booking_submitted', 'booking', this.lastID, { tracking_code: code, place_id: placeId || null, expires_at: expiresAt });
-      notifyNewBooking({ fullName, phone, email, university, placeId, trackingCode: code, expiresAt });
-      res.json({ message: "Success", id: this.lastID, trackingCode: code, expiresAt });
+      const expiryDays = bookingExpiryDays(settings);
+      const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
+      const sql = `INSERT INTO bookings
+        (full_name, phone, email, university, faculty, gender, move_in, duration, tracking_code, place_id, note, document_name, document_type, document_path, expires_at, organization_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT organization_id FROM places WHERE id=?))`;
+      db.run(sql, [
+        fullName, phone, normalizedEmail, university, faculty, gender, moveIn, duration, code, placeId || null, note || '',
+        doc.document_name || null, doc.document_type || null, doc.document_path || null, expiresAt, placeId || null
+      ], function (err) {
+        if (err) {
+          removeStoredDocument(doc.document_path);
+          return res.status(500).json({ error: err.message });
+        }
+        logAudit(normalizedEmail, 'booking_submitted', 'booking', this.lastID, { tracking_code: code, place_id: placeId || null, expires_at: expiresAt });
+        notifyNewBooking({ fullName, phone, email: normalizedEmail, university, placeId, trackingCode: code, expiresAt });
+        res.json({ message: "Success", id: this.lastID, trackingCode: code, expiresAt });
+      });
     });
   });
 });
@@ -1841,7 +1992,7 @@ app.get('/api/admin/students', requireAdmin, (req, res) => {
   const orgId = req.admin.organization_id;
   const where = orgId ? ' WHERE email IN (SELECT DISTINCT email FROM bookings WHERE organization_id = ?)' : '';
   const params = orgId ? [orgId] : [];
-  db.all(`SELECT id, full_name, phone, email, university, status, admin_note, document_name, created_at, updated_at FROM students${where} ORDER BY created_at DESC`, params, (err, rows) => {
+  db.all(`SELECT id, full_name, phone, email, university, status, admin_note, document_name, id_document_name, email_verified, age_confirmed, created_at, updated_at FROM students${where} ORDER BY created_at DESC`, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
@@ -1879,6 +2030,23 @@ app.get('/api/admin/students/:id/document', requireAdmin, (req, res) => {
       res.json({
         document_name: row.document_name,
         document_type: row.document_type,
+        document_data: data.toString('base64'),
+      });
+    });
+  });
+});
+
+app.get('/api/admin/students/:id/id-document', requireAdmin, (req, res) => {
+  db.get("SELECT id_document_name, id_document_type, id_document_path FROM students WHERE id = ?", [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row || !row.id_document_path) return res.status(404).json({ error: 'Document not found' });
+    const fullPath = path.resolve(__dirname, row.id_document_path);
+    if (!fullPath.startsWith(UPLOAD_DIR + path.sep) || !fs.existsSync(fullPath)) return res.status(404).json({ error: 'Document not found' });
+    fs.readFile(fullPath, (readErr, data) => {
+      if (readErr) return res.status(500).json({ error: 'Sənəd oxuna bilmədi' });
+      res.json({
+        document_name: row.id_document_name,
+        document_type: row.id_document_type,
         document_data: data.toString('base64'),
       });
     });
@@ -1967,7 +2135,7 @@ app.get('/api/admin/verification-queue', requireAdmin, (req, res) => {
   db.all(`SELECT id, full_name, provider_type, company_name, phone, email, status, id_document_name, created_at FROM providers WHERE status = 'Pending'${provWhere} ORDER BY created_at DESC`, p1, (providerErr, providers) => {
     if (providerErr) return res.status(500).json({ error: providerErr.message });
     result.providers = providers || [];
-    db.all(`SELECT id, full_name, phone, email, university, status, document_name, created_at FROM students WHERE status = 'Pending'${stuWhere} ORDER BY created_at DESC`, p2, (studentErr, students) => {
+    db.all(`SELECT id, full_name, phone, email, university, status, document_name, id_document_name, email_verified, age_confirmed, created_at FROM students WHERE status = 'Pending'${stuWhere} ORDER BY created_at DESC`, p2, (studentErr, students) => {
       if (studentErr) return res.status(500).json({ error: studentErr.message });
       result.students = students || [];
       db.all(`SELECT l.id, l.name, l.city, l.type, l.price, l.status, l.created_at,

@@ -271,7 +271,15 @@ qs("#studentRegisterForm")?.addEventListener("submit", async (e) => {
   const note = qs("#studentRegisterNote");
   const fd = new FormData(e.currentTarget);
   const data = Object.fromEntries(fd.entries());
-  data.document = await fileToPayload(fd.get("document"));
+  if (data.password !== data.confirmPassword) return setNote(note, "Parollar uyğun deyil");
+  if (!data.ageConfirmed) return setNote(note, "Yaş təsdiqi zəruridir");
+  if (!data.terms) return setNote(note, "İstifadə şərtlərini qəbul edin");
+  data.ageConfirmed = true;
+  data.terms = true;
+  data.studentCard = await fileToPayload(fd.get("studentCard"));
+  data.idDocument = await fileToPayload(fd.get("idDocument"));
+  delete data.confirmPassword;
+  if (!data.studentCard || !data.idDocument) return setNote(note, "Tələbə bileti və şəxsiyyət vəsiqəsi yüklənməlidir");
   try {
     const response = await fetch(`${API_URL}/students/register`, {
       method: "POST",
@@ -281,7 +289,7 @@ qs("#studentRegisterForm")?.addEventListener("submit", async (e) => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Qeydiyyat alınmadı");
     e.currentTarget.reset();
-    setNote(note, "Qeydiyyat göndərildi. Admin tələbə sənədinizi təsdiqləyəndən sonra statusunuz yenilənəcək.", true);
+    setNote(note, "Qeydiyyat göndərildi. Rezervasiya üçün e-poçtunuza gələn təsdiq linkinə keçin.", true);
   } catch (err) {
     setNote(note, err.message);
   }
@@ -611,6 +619,20 @@ qs("#trackingForm")?.addEventListener("submit", async (e) => {
 
 (async function initStudent() {
   const params = new URLSearchParams(location.search);
+  const googleStatus = params.get("google");
+  if (googleStatus) {
+    const messages = {
+      ok: "Google ilə giriş tamamlandı.",
+      invalid: "Google giriş sessiyası bitib. Yenidən cəhd edin.",
+      email_unverified: "Google e-poçt təsdiqi alınmadı.",
+      not_registered: "Bu Google e-poçtu ilə tələbə qeydiyyatı tapılmadı. Əvvəl sənədlərlə qeydiyyatdan keçin.",
+      age_required: "Yaş təsdiqi tamamlanmadığı üçün giriş açılmadı.",
+      failed: "Google girişi alınmadı.",
+      server_error: "Google girişində server xətası baş verdi.",
+    };
+    setNote(qs("#studentLoginNote"), messages[googleStatus] || "Google girişi tamamlanmadı", googleStatus === "ok");
+    history.replaceState({}, "", location.pathname);
+  }
 
   // Auto-open register tab
   if (params.get("tab") === "register") {

@@ -395,6 +395,10 @@
           <label class="field"><span>E-poçt</span><input name="email" type="email" autocomplete="username" required></label>
           <label class="field"><span>Parol</span><input name="password" type="password" autocomplete="current-password" required></label>
           <button class="btn btn-primary btn-lg" type="submit">Kabinetə daxil ol</button>
+          <a class="btn btn-lg google-student-btn" href="/api/students/auth/google">
+            <span style="font-weight:900">G</span>
+            Google ilə tələbə girişi
+          </a>
           <p class="cab-note" id="studentLoginNote"></p>
           <p style="margin:0;text-align:right"><button type="button" id="forgotPassBtn" style="background:none;border:none;color:var(--brand);font-size:13px;cursor:pointer;padding:0;font-weight:600">Şifrəni unutdum?</button></p>
         </form>
@@ -419,14 +423,27 @@
           </div>
           <label class="field"><span>Ad və soyad</span><input name="fullName" type="text" required></label>
           <div class="cab-form-row">
-            <label class="field"><span>Telefon</span><input name="phone" type="tel" placeholder="+994 XX XXX XX XX"></label>
+            <label class="field"><span>Telefon</span><input name="phone" type="tel" placeholder="+994501234567" pattern="^\+994[0-9]{9}$" required></label>
             <label class="field"><span>E-poçt</span><input name="email" type="email" autocomplete="username" required></label>
           </div>
           <label class="field"><span>Universitet</span><input name="university" type="text" required></label>
-          <label class="field"><span>Parol (min. 8 simvol)</span><input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
-          <label class="field"><span>Tələbə sənədi (PDF / şəkil)</span><input name="document" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+          <div class="cab-form-row">
+            <label class="field"><span>Parol (min. 8 simvol)</span><input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
+            <label class="field"><span>Parolu təsdiqlə</span><input name="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></label>
+          </div>
+          <label class="field"><span>Tələbə bileti (PDF / şəkil)</span><input name="studentCard" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+          <label class="field"><span>Şəxsiyyət vəsiqəsi şəkli (PDF / şəkil)</span><input name="idDocument" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+          <label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;cursor:pointer">
+            <input type="checkbox" name="ageConfirmed" style="margin-top:3px;flex-shrink:0" required>
+            <span style="font-size:13px;color:var(--text-muted)">18 yaşdan yuxarı olduğumu təsdiq edirəm.</span>
+          </label>
+          <label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;cursor:pointer">
+            <input type="checkbox" name="terms" style="margin-top:3px;flex-shrink:0" required>
+            <span style="font-size:13px;color:var(--text-muted)"><a href="terms.html" target="_blank" rel="noopener" style="color:var(--brand)">İstifadə şərtlərini</a> oxudum və qəbul edirəm.</span>
+          </label>
           <button class="btn btn-primary btn-lg" type="submit">Yoxlamaya göndər</button>
           <p class="cab-note" id="studentRegisterNote"></p>
+          <p style="color:var(--text-muted);font-size:13px;margin:0">Rezervasiya yalnız e-poçt təsdiqindən və yaş təsdiqindən sonra aktiv olur. Sənədlər təhlükəsizlik üçün sistemdə saxlanılır.</p>
         </form>
       </div>
     </div>

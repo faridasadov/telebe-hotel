@@ -1584,18 +1584,23 @@ async function updateStats() {
     const email = f.querySelector("[name=email]").value.trim();
     const university = f.querySelector("[name=university]").value;
     const password = f.querySelector("[name=password]").value;
-    const fileInput = f.querySelector("[name=document]");
+    const confirmPassword = f.querySelector("[name=confirmPassword]")?.value;
+    const studentCardInput = f.querySelector("[name=studentCard]");
+    const idDocumentInput = f.querySelector("[name=idDocument]");
+    const ageConfirmed = f.querySelector("[name=ageConfirmed]")?.checked;
+    const terms = f.querySelector("[name=terms]")?.checked;
     const note = "authRegStudentNote";
 
-    if (!fullName || !email || !university || !password) return setNote(note, "Bütün məcburi sahələri doldurun");
+    if (!fullName || !phone || !email || !university || !password) return setNote(note, "Bütün məcburi sahələri doldurun");
     if (password.length < 8) return setNote(note, "Şifrə minimum 8 simvol olmalıdır");
+    if (password !== confirmPassword) return setNote(note, "Şifrələr uyğun deyil");
+    if (!ageConfirmed) return setNote(note, "Yaş təsdiqi zəruridir");
+    if (!terms) return setNote(note, "İstifadə şərtlərini qəbul edin");
 
-    let docPayload = null;
-    if (fileInput && fileInput.files[0]) {
-      setNote(note, "Fayl hazırlanır...", true);
-      docPayload = await fileToPayload(fileInput.files[0]).catch(() => null);
-    }
-    if (!docPayload) return setNote(note, "Tələbə sənədini əlavə edin (PDF / şəkil)");
+    setNote(note, "Fayllar hazırlanır...", true);
+    const studentCard = studentCardInput?.files?.[0] ? await fileToPayload(studentCardInput.files[0]).catch(() => null) : null;
+    const idDocument = idDocumentInput?.files?.[0] ? await fileToPayload(idDocumentInput.files[0]).catch(() => null) : null;
+    if (!studentCard || !idDocument) return setNote(note, "Tələbə bileti və şəxsiyyət vəsiqəsi əlavə edin");
 
     setNote(note, "Qeydiyyat edilir...", true);
     try {
@@ -1603,11 +1608,11 @@ async function updateStats() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ fullName, phone, email, university, password, document: docPayload }),
+        body: JSON.stringify({ fullName, phone, email, university, password, studentCard, idDocument, ageConfirmed, terms }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Xəta baş verdi");
-      setNote(note, "Qeydiyyat uğurludur! Admin təsdiqlədikdən sonra daxil ola bilərsiniz. ✓", true);
+      setNote(note, "Qeydiyyat uğurludur! Rezervasiya üçün e-poçtunuza gələn linki təsdiqləyin. ✓", true);
       f.reset();
     } catch (err) { setNote(note, err.message); }
   }

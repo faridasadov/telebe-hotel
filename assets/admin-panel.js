@@ -293,7 +293,8 @@ async function fetchStudents() {
           <button class="btn btn-sm" onclick="setStudentStatus(${s.id}, 'Approved')" ${s.status === "Approved" ? "disabled" : ""}>Təsdiq</button>
           <button class="btn btn-sm" onclick="setStudentStatus(${s.id}, 'Pending')" ${s.status === "Pending" ? "disabled" : ""}>Gözlət</button>
           <button class="btn btn-danger btn-sm" onclick="setStudentStatus(${s.id}, 'Rejected')" ${s.status === "Rejected" ? "disabled" : ""}>İmtina</button>
-          ${s.document_name ? `<button class="btn btn-sm" onclick="openStudentDocument(${s.id})">Sənəd</button>` : ""}
+          ${s.document_name ? `<button class="btn btn-sm" onclick="openStudentDocument(${s.id}, 'student')">Bilet</button>` : ""}
+          ${s.id_document_name ? `<button class="btn btn-sm" onclick="openStudentDocument(${s.id}, 'id')">Ş/V</button>` : ""}
         </div>
       </td>
     </tr>
@@ -318,8 +319,9 @@ async function setStudentStatus(id, status) {
   fetchStats();
 }
 
-async function openStudentDocument(id) {
-  const response = await authFetch(`${API_URL}/admin/students/${id}/document`);
+async function openStudentDocument(id, type = "student") {
+  const path = type === "id" ? "id-document" : "document";
+  const response = await authFetch(`${API_URL}/admin/students/${id}/${path}`);
   if (!response.ok) {
     const doc = await response.json().catch(() => ({}));
     showAdminError(doc.error || "Sənəd tapılmadı");
@@ -409,7 +411,8 @@ async function fetchVerificationQueue() {
       <td class="booking-actions">
         <button class="btn btn-sm" onclick="setStudentStatus(${s.id}, 'Approved')">Təsdiq</button>
         <button class="btn btn-danger btn-sm" onclick="setStudentStatus(${s.id}, 'Rejected')">İmtina</button>
-        <button class="btn btn-sm" onclick="openStudentDocument(${s.id})">Sənəd</button>
+        <button class="btn btn-sm" onclick="openStudentDocument(${s.id}, 'student')">Bilet</button>
+        ${s.id_document_name ? `<button class="btn btn-sm" onclick="openStudentDocument(${s.id}, 'id')">Ş/V</button>` : ""}
       </td>
     </tr>
   `);
