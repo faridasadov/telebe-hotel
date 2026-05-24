@@ -76,7 +76,7 @@ app.get('/admin-login', (req, res) => {
 });
 const NO_CACHE_FILES = new Set(['admin.html', 'admin-panel.js', 'admin.js', 'superadmin.html', 'superadmin.js', 'moderator.html', 'moderator.js', 'owner-login.html', 'owner.js', 'student.html', 'student.js']);
 app.use(express.static(path.join(__dirname, '..'), {
-  maxAge: '5m',
+  maxAge: 0,
   setHeaders(res, filePath) {
     const base = require('path').basename(filePath);
     if (NO_CACHE_FILES.has(base)) {
@@ -535,6 +535,9 @@ app.post('/api/admin/login', (req, res) => {
         if (!ok) {
           recordLoginFailure(req);
           return res.status(401).json({ error: 'Yanlış istifadəçi adı və ya şifrə' });
+        }
+        if (adminUser.role === 'superadmin') {
+          return res.status(403).json({ error: 'Superadmin üçün ayrıca giriş səhifəsindən istifadə edin.' });
         }
         if (adminUser.organization_id && adminUser.org_status && adminUser.org_status !== 'Active') {
           return res.status(403).json({ error: 'Orqanizasiya aktiv deyil. Superadmin ilə əlaqə saxlayın.' });
@@ -1556,9 +1559,31 @@ function sendStats(res) {
   });
 }
 
+function sendAdminStats(req, res) {
+  const orgId = req.admin && req.admin.organization_id;
+  if (!orgId) return sendStats(res);
+  expireOldBookings((expireErr) => {
+    if (expireErr) return res.status(500).json({ error: expireErr.message });
+    db.get(`SELECT
+      (SELECT count(*) FROM places WHERE organization_id = ?) AS totalPlaces,
+      (SELECT sum(total_spots) FROM places WHERE organization_id = ?) AS totalSpots,
+      (SELECT sum(free_spots) FROM places WHERE organization_id = ?) AS freeSpots,
+      (SELECT count(*) FROM bookings WHERE organization_id = ? AND status = 'Pending') AS pendingBookings
+    `, [orgId, orgId, orgId, orgId], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({
+        totalPlaces: row?.totalPlaces || 0,
+        totalSpots: row?.totalSpots || 0,
+        freeSpots: row?.freeSpots || 0,
+        pendingBookings: row?.pendingBookings || 0,
+      });
+    });
+  });
+}
+
 // ---- Public/Admin stats ----
 app.get('/api/stats', (req, res) => sendStats(res));
-app.get('/api/admin/stats', requireAdmin, (req, res) => sendStats(res));
+app.get('/api/admin/stats', requireAdmin, sendAdminStats);
 
 // ---- Admin extended stats (org-scoped when applicable) ----
 app.get('/api/admin/stats-extended', requireAdmin, (req, res) => {

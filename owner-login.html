@@ -434,7 +434,7 @@
           <label class="field" style="flex-direction:row;align-items:flex-start;gap:10px;cursor:pointer">
             <input type="checkbox" name="terms" id="regTerms" style="margin-top:3px;flex-shrink:0" required>
             <span style="font-size:13px;color:var(--text-muted)">
-              <a href="#" style="color:var(--brand)">İstifadə şərtlərini</a> oxudum və qəbul edirəm. Platforma qaydalarına riayət edəcəyimə razılaşıram.
+              <a href="#" onclick="event.preventDefault();document.getElementById('termsModal').showModal()" style="color:var(--brand)">İstifadə şərtlərini</a> oxudum və qəbul edirəm. Platforma qaydalarına riayət edəcəyimə razılaşıram.
             </span>
           </label>
 
@@ -630,5 +630,47 @@
         });
       });
     </script>
-  </body>
+
+  <!-- Terms Modal -->
+  <dialog id="termsModal" style="max-width:640px;width:90%;border:1px solid var(--border);border-radius:var(--r-lg);padding:0;background:var(--bg-card);box-shadow:var(--shadow-xl)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px 16px;border-bottom:1px solid var(--border)">
+      <h2 style="margin:0;font-size:1.2rem">İstifadə Şərtləri</h2>
+      <button onclick="document.getElementById('termsModal').close()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);padding:4px 8px" aria-label="Bağla">×</button>
+    </div>
+    <div style="padding:20px 24px;max-height:60vh;overflow-y:auto;line-height:1.7;color:var(--text-muted);font-size:14px">
+      <h3 style="color:var(--text);font-size:1rem;margin:0 0 8px">1. Ümumi qaydalar</h3>
+      <p>StudentStay platformasından istifadə etməklə siz aşağıdakı şərtləri qəbul etmiş sayılırsınız. Platforma tələbələr üçün etibarlı yaşayış yerlərini birləşdirən vasitəçi xidmətdir.</p>
+
+      <h3 style="color:var(--text);font-size:1rem;margin:16px 0 8px">2. Elan sahibləri üçün</h3>
+      <ul style="margin:0 0 12px;padding-left:20px">
+        <li>Paylaşdırılan bütün məlumatlar həqiqi və dəqiq olmalıdır.</li>
+        <li>Şəkillər real obyekti əks etdirməlidir.</li>
+        <li>VÖEN və müəssisə sənədləri yoxlanılır; saxta məlumat qeydiyyatın ləğvinə səbəb olur.</li>
+        <li>Hər yeni elan admin tərəfindən təsdiqləndikdən sonra yayımlanır.</li>
+      </ul>
+
+      <h3 style="color:var(--text);font-size:1rem;margin:16px 0 8px">3. Tələbələr üçün</h3>
+      <ul style="margin:0 0 12px;padding-left:20px">
+        <li>Platforma ödəniş prosesini idarə etmir; maliyyə razılaşmaları şəxsi aparılır.</li>
+        <li>Saxta rəy və ya şikayət qeydiyyatın bloklanmasına səbəb ola bilər.</li>
+      </ul>
+
+      <h3 style="color:var(--text);font-size:1rem;margin:16px 0 8px">4. Məxfilik</h3>
+      <p>Şəxsi məlumatlarınız yalnız platforma xidmətlərini təmin etmək üçün istifadə olunur və üçüncü şəxslərə satılmır.</p>
+
+      <h3 style="color:var(--text);font-size:1rem;margin:16px 0 8px">5. Platforma məsuliyyəti</h3>
+      <p>StudentStay elan sahibi ilə tələbə arasındakı münasibətdən birbaşa məsuliyyət daşımır. Münaqişə halında hər iki tərəfə vasitəçilik təklif edirik.</p>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid var(--border);text-align:right">
+      <button onclick="document.getElementById('termsModal').close()" class="btn btn-primary" style="padding:8px 24px">Bağla</button>
+    </div>
+  </dialog>
+
+  <script>
+    document.getElementById('termsModal')?.addEventListener('click', function(e) {
+      if (e.target === this) this.close();
+    });
+  </script>
+
+</body>
 </html>

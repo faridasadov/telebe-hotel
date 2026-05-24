@@ -1522,6 +1522,7 @@ async function updateStats() {
       hdr.innerHTML = `<span class="auth-role-pill ${isStudent ? "student" : "owner"}">${icon} ${isStudent ? "Tələbə" : "Ev sahibi"}</span>`;
     }
     switchMode("login");
+    initAuthProviderForm();
   }
 
   function switchMode(mode) {
@@ -1612,20 +1613,68 @@ async function updateStats() {
   }
 
   /* ---- API: Provider register ---- */
+  // Dynamic labels/fields for provider type in auth modal
+  function initAuthProviderForm() {
+    const typeSelect = document.getElementById("authProviderType");
+    if (!typeSelect) return;
+    const LABELS = {
+      owner:          { label: "Şirkət adı (ixtiyari)", required: false },
+      agency:         { label: "Agentlik adı",           required: true  },
+      hostel:         { label: "Hostel adı",             required: true  },
+      university_dorm:{ label: "Yataqxana / müəssisə adı", required: true },
+    };
+    const DOC_LABELS = {
+      owner:          "Şəxsiyyət sənədi (PDF / şəkil)",
+      agency:         "Müəssisə qeydiyyat şəhadətnaməsi (PDF / şəkil)",
+      hostel:         "Müəssisə qeydiyyat şəhadətnaməsi (PDF / şəkil)",
+      university_dorm:"Universitetdən rəsmi məktub / lisenziya (PDF / şəkil)",
+    };
+    const NEEDS_VOEN = ["agency","hostel","university_dorm"];
+    function onTypeChange() {
+      const type = typeSelect.value || "owner";
+      const cfg = LABELS[type] || LABELS.owner;
+      const lbl = document.getElementById("authCompanyLabel");
+      const inp = document.getElementById("authCompanyName");
+      const vf  = document.getElementById("authVoenField");
+      const dl  = document.getElementById("authDocLabel");
+      if (lbl) lbl.textContent = cfg.label;
+      if (inp) inp.required = cfg.required;
+      if (vf)  vf.style.display = NEEDS_VOEN.includes(type) ? "" : "none";
+      if (dl)  dl.textContent = DOC_LABELS[type] || DOC_LABELS.owner;
+    }
+    typeSelect.addEventListener("change", onTypeChange);
+    onTypeChange();
+    // password match
+    const pw  = document.querySelector("#authRegisterProvider [name=password]");
+    const cpw = document.getElementById("authConfirmPass");
+    function checkPw() {
+      if (!cpw || !pw) return;
+      cpw.setCustomValidity(cpw.value && cpw.value !== pw.value ? "Parollar uyğun gəlmir" : "");
+    }
+    pw?.addEventListener("input", checkPw);
+    cpw?.addEventListener("input", checkPw);
+  }
+
   async function handleRegProvider(e) {
     e.preventDefault();
     const f = e.currentTarget;
-    const fullName = f.querySelector("[name=fullName]").value.trim();
-    const phone = f.querySelector("[name=phone]").value.trim();
-    const email = f.querySelector("[name=email]").value.trim();
-    const password = f.querySelector("[name=password]").value;
-    const providerType = f.querySelector("[name=providerType]").value;
+    const fullName    = f.querySelector("[name=fullName]").value.trim();
+    const phone       = f.querySelector("[name=phone]").value.trim();
+    const email       = f.querySelector("[name=email]").value.trim();
+    const password    = f.querySelector("[name=password]").value;
+    const confirmPass = f.querySelector("[name=confirmPassword]")?.value;
+    const providerType= f.querySelector("[name=providerType]").value;
     const companyName = f.querySelector("[name=companyName]").value.trim();
-    const fileInput = f.querySelector("[name=document]");
+    const voen        = f.querySelector("[name=voen]")?.value.trim() || "";
+    const city        = f.querySelector("[name=city]")?.value || "";
+    const terms       = f.querySelector("[name=terms]")?.checked;
+    const fileInput   = f.querySelector("[name=document]");
     const note = "authRegProviderNote";
 
     if (!fullName || !phone || !email || !password) return setNote(note, "Bütün məcburi sahələri doldurun");
     if (password.length < 8) return setNote(note, "Şifrə minimum 8 simvol olmalıdır");
+    if (confirmPass !== undefined && confirmPass !== password) return setNote(note, "Parollar uyğun gəlmir");
+    if (!terms) return setNote(note, "İstifadə şərtlərini qəbul edin");
 
     let docPayload = null;
     if (fileInput && fileInput.files[0]) {
@@ -1640,7 +1689,7 @@ async function updateStats() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ fullName, phone, email, password, providerType, companyName, document: docPayload }),
+        body: JSON.stringify({ fullName, phone, email, password, providerType, companyName, voen, city, document: docPayload }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Xəta baş verdi");

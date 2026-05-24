@@ -1355,7 +1355,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .ss-map-stage {
-  height: 480px;
+  height: 260px;
   position: relative;
   overflow: hidden;
   background: linear-gradient(160deg, #0f172a 0%, #134e4a 35%, #1e3a8a 75%, #312e81 100%);
@@ -1382,6 +1382,24 @@ input[type="range"]::-webkit-slider-thumb {
     radial-gradient(circle at 50% 88%, rgba(236,72,153,0.32), transparent 40%);
   filter: blur(2px);
   pointer-events: none;
+}
+
+.ss-az-border-map {
+  position: absolute;
+  left: 4%;
+  top: 2%;
+  width: 92%;
+  height: 94%;
+  object-fit: contain;
+  opacity: 0.62;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: screen;
+  filter:
+    drop-shadow(0 0 7px rgba(94, 234, 212, 0.65))
+    drop-shadow(0 0 18px rgba(59, 130, 246, 0.35))
+    saturate(1.45)
+    hue-rotate(62deg);
 }
 
 .ss-map-hex {
@@ -2234,7 +2252,7 @@ input[type="range"]::-webkit-slider-thumb {
     grid-column: 1 / -1;
     position: static;
   }
-  .ss-map-stage { height: 320px; }
+  .ss-map-stage { height: 180px; }
 }
 
 @media (max-width: 900px) {
@@ -3062,4 +3080,22 @@ input[type="range"]::-webkit-slider-thumb {
   color: var(--brand);
   font-weight: 700;
   font-size: 12px;
+}
+
+/* Required field asterisk */
+.field:has(input[required]) > span:first-child::after,
+.field:has(select[required]) > span:first-child::after {
+  content: " *";
+  color: var(--danger, #ef4444);
+}
+
+/* Invalid field highlight after user interaction */
+.field input:user-invalid,
+.field select:user-invalid {
+  border-color: var(--danger, #ef4444) !important;
+  box-shadow: 0 0 0 2px rgba(239,68,68,.15);
+}
+.field input:invalid:not(:focus):not(:placeholder-shown),
+.field select:invalid:not(:focus):not([value=""]) {
+  border-color: var(--danger, #ef4444) !important;
 }
