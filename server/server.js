@@ -74,7 +74,7 @@ app.get('/admin-login', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.sendFile(path.join(__dirname, '..', 'admin.html'));
 });
-const NO_CACHE_FILES = new Set(['admin.html', 'admin-panel.js', 'admin.js', 'superadmin.html', 'superadmin.js', 'moderator.html', 'moderator.js']);
+const NO_CACHE_FILES = new Set(['admin.html', 'admin-panel.js', 'admin.js', 'superadmin.html', 'superadmin.js', 'moderator.html', 'moderator.js', 'owner-login.html', 'owner.js', 'student.html', 'student.js']);
 app.use(express.static(path.join(__dirname, '..'), {
   maxAge: '5m',
   setHeaders(res, filePath) {

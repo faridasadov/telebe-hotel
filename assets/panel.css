@@ -224,3 +224,22 @@
 }
 
 [hidden] { display: none !important; }
+
+/* Required field asterisk */
+.field:has(input[required]) > span:first-child::after,
+.field:has(select[required]) > span:first-child::after {
+  content: " *";
+  color: var(--danger, #ef4444);
+}
+
+/* Invalid field highlight after user interaction */
+.field input:user-invalid,
+.field select:user-invalid {
+  border-color: var(--danger, #ef4444) !important;
+  box-shadow: 0 0 0 2px rgba(239,68,68,.15);
+}
+/* Fallback for browsers without :user-invalid */
+.field input:invalid:not(:focus):not(:placeholder-shown),
+.field select:invalid:not(:focus):not([value=""]) {
+  border-color: var(--danger, #ef4444) !important;
+}

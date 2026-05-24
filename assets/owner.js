@@ -125,6 +125,20 @@ document.querySelectorAll("[data-owner-tab]").forEach((button) => {
 
   typeSelect?.addEventListener("change", onTypeChange);
   onTypeChange();
+
+  // Real-time password match validation via native setCustomValidity
+  const confirmInput = qs("[name='confirmPassword']");
+  const passwordInput = qs("[name='password']");
+  function checkPasswords() {
+    if (!confirmInput || !passwordInput) return;
+    confirmInput.setCustomValidity(
+      confirmInput.value && confirmInput.value !== passwordInput.value
+        ? "Parollar uyğun gəlmir"
+        : ""
+    );
+  }
+  confirmInput?.addEventListener("input", checkPasswords);
+  passwordInput?.addEventListener("input", checkPasswords);
 })();
 
 qs("#providerRegisterForm")?.addEventListener("submit", async (e) => {
@@ -133,15 +147,9 @@ qs("#providerRegisterForm")?.addEventListener("submit", async (e) => {
   const fd   = new FormData(e.currentTarget);
   const data = Object.fromEntries(fd.entries());
 
-  // Client-side validations
-  if (data.password !== data.confirmPassword) {
-    return setNote(note, "Parollar uyğun gəlmir");
-  }
+  // Terms checkbox — native required doesn't work on checkboxes in all browsers
   if (!qs("#regTerms")?.checked) {
     return setNote(note, "İstifadə şərtlərini qəbul etməlisiniz");
-  }
-  if (!/^\+994[0-9]{9}$/.test(data.phone)) {
-    return setNote(note, "Telefon +994XXXXXXXXX formatında olmalıdır");
   }
 
   delete data.confirmPassword;
